@@ -10,6 +10,15 @@ class ExpenseTelegramHandler:
     def __init__(self, expense_service: ExpenseService):
         self.expense_service = expense_service
 
+    async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "👋 Olá! Eu sou o seu Bot Financeiro.\n\n"
+            "Para registrar uma despesa, envie a mensagem no seguinte formato:\n"
+            "`<Valor> <Cartão> <Categoria> <Descrição>`\n\n"
+            "Exemplo: `150 Nubank Alimentação Supermercado`",
+            parse_mode="Markdown"
+        )
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         
