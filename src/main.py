@@ -52,6 +52,7 @@ def main():
         application.run_webhook(
             listen="0.0.0.0",
             port=port,
+            url_path=settings.telegram_token,
             webhook_url=f"{render_url}/{settings.telegram_token}"
         )
     else:
