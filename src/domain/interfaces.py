@@ -14,3 +14,11 @@ class IExpenseRepository(ABC):
     @abstractmethod
     def get_expenses_by_category(self, reference: str) -> dict:
         pass
+
+    @abstractmethod
+    def get_expenses_by_payment_method(self, reference: str) -> dict:
+        pass
+
+    @abstractmethod
+    def get_recent_expenses(self, limit: int = 10) -> list:
+        pass

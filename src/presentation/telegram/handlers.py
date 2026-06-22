@@ -11,20 +11,26 @@ class ExpenseTelegramHandler:
         self.expense_service = expense_service
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        keyboard = [
-            [
-                InlineKeyboardButton("📊 Resumo do Mês", callback_data="resumo_mensal"),
-                InlineKeyboardButton("📈 Gráfico de Gastos", callback_data="grafico_gastos")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
         await update.message.reply_text(
             "👋 Olá! Eu sou o seu Bot Financeiro.\n\n"
             "Para registrar uma despesa, envie a mensagem no seguinte formato:\n"
             "`<Valor> <Cartão> <Categoria> <Descrição>`\n\n"
-            "Exemplo: `150 Nubank Alimentação Supermercado`\n\n"
-            "Ou escolha uma das opções abaixo:",
+            "Exemplo: `150 Nubank Alimentação Supermercado`",
+            parse_mode="Markdown"
+        )
+        await self.handle_menu(update, context)
+
+    async def handle_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        keyboard = [
+            [InlineKeyboardButton("📊 Resumo do Mês", callback_data="resumo_mensal")],
+            [InlineKeyboardButton("💳 Gastos por Cartão", callback_data="gastos_cartao")],
+            [InlineKeyboardButton("📋 Últimos Gastos", callback_data="ultimos_gastos")],
+            [InlineKeyboardButton("📈 Gráfico de Categorias", callback_data="grafico_gastos")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            "🎛️ **Menu Principal**\nEscolha uma das opções abaixo:",
             parse_mode="Markdown",
             reply_markup=reply_markup
         )
@@ -45,6 +51,28 @@ class ExpenseTelegramHandler:
                 f"📈 **Receitas:** `R$ {summary['total_revenues']:.2f}`\n"
                 f"⚖️ **Saldo:** `R$ {summary['balance']:.2f}`"
             )
+            await query.edit_message_text(text=text, parse_mode="Markdown")
+
+        elif query.data == "gastos_cartao":
+            data = self.expense_service.get_expenses_by_payment_method()
+            if not data:
+                await query.edit_message_text("Não há despesas registradas neste mês.")
+                return
+            
+            text = "💳 **Gastos por Cartão (Mês Atual)**\n\n"
+            for method, amount in data.items():
+                text += f"• `{method}`: R$ {amount:.2f}\n"
+            await query.edit_message_text(text=text, parse_mode="Markdown")
+
+        elif query.data == "ultimos_gastos":
+            recent = self.expense_service.get_recent_expenses(5)
+            if not recent:
+                await query.edit_message_text("Nenhuma despesa registrada recentemente.")
+                return
+            
+            text = "📋 **Últimos 5 Gastos**\n\n"
+            for t in recent:
+                text += f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  _{t['description']} ({t['payment_method']})_\n\n"
             await query.edit_message_text(text=text, parse_mode="Markdown")
 
         elif query.data == "grafico_gastos":

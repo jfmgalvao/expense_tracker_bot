@@ -49,6 +49,13 @@ class ExpenseService:
         reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_monthly_summary(reference)
         
+    def get_expenses_by_payment_method(self) -> dict:
+        reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_expenses_by_payment_method(reference)
+
+    def get_recent_expenses(self, limit: int = 10) -> list:
+        return self.repository.get_recent_expenses(limit)
+        
     def get_monthly_chart(self) -> io.BytesIO:
         reference = datetime.now().strftime("%Y-%m")
         data = self.repository.get_expenses_by_category(reference)

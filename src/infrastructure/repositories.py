@@ -89,3 +89,51 @@ class PostgresExpenseRepository(IExpenseRepository):
         finally:
             if conn:
                 conn.close()
+
+    def get_expenses_by_payment_method(self, reference: str) -> dict:
+        query = """
+            SELECT payment_method, SUM(amount) as total
+            FROM transactions
+            WHERE reference = %s AND type = 'Despesa'
+            GROUP BY payment_method
+            ORDER BY total DESC
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (reference,))
+                rows = cur.fetchall()
+                return {row[0]: float(row[1]) for row in rows}
+        finally:
+            if conn:
+                conn.close()
+
+    def get_recent_expenses(self, limit: int = 10) -> list:
+        query = """
+            SELECT id, amount, category, payment_method, description, created_at
+            FROM transactions
+            WHERE type = 'Despesa'
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (limit,))
+                rows = cur.fetchall()
+                return [
+                    {
+                        "id": row[0],
+                        "amount": float(row[1]),
+                        "category": row[2],
+                        "payment_method": row[3],
+                        "description": row[4],
+                        "date": row[5].strftime("%d/%m") if row[5] else ""
+                    }
+                    for row in rows
+                ]
+        finally:
+            if conn:
+                conn.close()
