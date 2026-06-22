@@ -1,3 +1,4 @@
+import os
 import logging
 from telegram.ext import ApplicationBuilder, MessageHandler, filters
 from src.config.settings import settings
