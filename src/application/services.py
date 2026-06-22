@@ -1,4 +1,7 @@
+import io
 from datetime import datetime
+import matplotlib.pyplot as plt
+import seaborn as sns
 from src.domain.entities import Expense
 from src.domain.interfaces import IExpenseRepository
 
@@ -41,3 +44,34 @@ class ExpenseService:
         expense_id = self.repository.save(expense)
         expense.id = expense_id
         return expense
+
+    def get_monthly_summary(self) -> dict:
+        reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_monthly_summary(reference)
+        
+    def get_monthly_chart(self) -> io.BytesIO:
+        reference = datetime.now().strftime("%Y-%m")
+        data = self.repository.get_expenses_by_category(reference)
+        
+        # If no data, return None
+        if not data:
+            return None
+            
+        categories = list(data.keys())
+        amounts = list(data.values())
+        
+        # Create chart
+        plt.figure(figsize=(10, 6))
+        sns.barplot(x=amounts, y=categories, palette="viridis")
+        plt.title(f"Despesas por Categoria - {reference}", fontsize=16)
+        plt.xlabel("Valor (R$)", fontsize=12)
+        plt.ylabel("Categoria", fontsize=12)
+        plt.tight_layout()
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        plt.close()
+        
+        return buf

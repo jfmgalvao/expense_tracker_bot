@@ -1,5 +1,5 @@
 import logging
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.config.settings import settings
 from src.application.services import ExpenseService
@@ -11,13 +11,50 @@ class ExpenseTelegramHandler:
         self.expense_service = expense_service
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        keyboard = [
+            [
+                InlineKeyboardButton("📊 Resumo do Mês", callback_data="resumo_mensal"),
+                InlineKeyboardButton("📈 Gráfico de Gastos", callback_data="grafico_gastos")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         await update.message.reply_text(
             "👋 Olá! Eu sou o seu Bot Financeiro.\n\n"
             "Para registrar uma despesa, envie a mensagem no seguinte formato:\n"
             "`<Valor> <Cartão> <Categoria> <Descrição>`\n\n"
-            "Exemplo: `150 Nubank Alimentação Supermercado`",
-            parse_mode="Markdown"
+            "Exemplo: `150 Nubank Alimentação Supermercado`\n\n"
+            "Ou escolha uma das opções abaixo:",
+            parse_mode="Markdown",
+            reply_markup=reply_markup
         )
+
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+
+        chat_id = update.effective_chat.id
+        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
+            return
+
+        if query.data == "resumo_mensal":
+            summary = self.expense_service.get_monthly_summary()
+            text = (
+                f"📊 **Resumo do Mês Atual**\n\n"
+                f"📉 **Despesas:** `R$ {summary['total_expenses']:.2f}`\n"
+                f"📈 **Receitas:** `R$ {summary['total_revenues']:.2f}`\n"
+                f"⚖️ **Saldo:** `R$ {summary['balance']:.2f}`"
+            )
+            await query.edit_message_text(text=text, parse_mode="Markdown")
+
+        elif query.data == "grafico_gastos":
+            await query.edit_message_text("Gerando gráfico, aguarde... ⏳")
+            chart_buf = self.expense_service.get_monthly_chart()
+            if chart_buf:
+                await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
+                await query.edit_message_text("Aqui está o gráfico do mês atual!")
+            else:
+                await query.edit_message_text("Não há dados suficientes neste mês para gerar um gráfico.")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id

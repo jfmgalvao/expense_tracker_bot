@@ -47,3 +47,45 @@ class PostgresExpenseRepository(IExpenseRepository):
         finally:
             if conn:
                 conn.close()
+
+    def get_monthly_summary(self, reference: str) -> dict:
+        query = """
+            SELECT 
+                COALESCE(SUM(CASE WHEN type = 'Despesa' THEN amount ELSE 0 END), 0) as total_expenses,
+                COALESCE(SUM(CASE WHEN type = 'Renda' THEN amount ELSE 0 END), 0) as total_revenues
+            FROM transactions
+            WHERE reference = %s
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (reference,))
+                row = cur.fetchone()
+                return {
+                    "total_expenses": float(row[0]),
+                    "total_revenues": float(row[1]),
+                    "balance": float(row[1] - row[0])
+                }
+        finally:
+            if conn:
+                conn.close()
+
+    def get_expenses_by_category(self, reference: str) -> dict:
+        query = """
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            WHERE reference = %s AND type = 'Despesa'
+            GROUP BY category
+            ORDER BY total DESC
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (reference,))
+                rows = cur.fetchall()
+                return {row[0]: float(row[1]) for row in rows}
+        finally:
+            if conn:
+                conn.close()
