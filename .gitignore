@@ -1,0 +1,17 @@
+# Ambientes Virtuais
+.venv/
+venv/
+env/
+
+# Configurações locais sensíveis
+.env
+
+# Arquivos gerados pelo Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos de dados (seu histórico Excel não deve ir para o GitHub público!)
+scripts/etl/dados.xlsx
+historico/
