@@ -1,4 +1,5 @@
 import io
+import re
 from datetime import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -26,15 +27,25 @@ class ExpenseService:
         except ValueError:
             raise ValueError("O valor informado não é numérico válido.")
 
-        # Pega o ano e mês atual no formato YYYY-MM para o campo reference
-        current_reference = datetime.now().strftime("%Y-%m")
+        # Extract optional reference from the end of description
+        reference = datetime.now().strftime("%Y-%m")
+        desc_parts = description.split()
+        if len(desc_parts) >= 1:
+            last_word = desc_parts[-1]
+            if re.match(r"^(\d{4}-\d{2})$", last_word):
+                reference = last_word
+                description = " ".join(desc_parts[:-1]) if len(desc_parts) > 1 else description
+            elif re.match(r"^(\d{2}/\d{4})$", last_word):
+                month, year = last_word.split("/")
+                reference = f"{year}-{month}"
+                description = " ".join(desc_parts[:-1]) if len(desc_parts) > 1 else description
 
         return Expense(
             amount=amount,
             payment_method=payment_method,
             category=category,
             description=description,
-            reference=current_reference,
+            reference=reference,
             status="PAGO",  # Assumimos pago ao lançar via bot no dia a dia
             is_fixed=False  # Assumimos gasto variável no dia a dia
         )
@@ -45,19 +56,27 @@ class ExpenseService:
         expense.id = expense_id
         return expense
 
-    def get_monthly_summary(self) -> dict:
-        reference = datetime.now().strftime("%Y-%m")
+    def get_monthly_summary(self, reference: str = None) -> dict:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_monthly_summary(reference)
         
-    def get_expenses_by_payment_method(self) -> dict:
-        reference = datetime.now().strftime("%Y-%m")
+    def get_expenses_by_payment_method(self, reference: str = None) -> dict:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_expenses_by_payment_method(reference)
+
+    def get_card_expenses_details(self, card_name: str, reference: str = None) -> list:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_card_expenses_details(card_name, reference)
 
     def get_recent_expenses(self, limit: int = 10) -> list:
         return self.repository.get_recent_expenses(limit)
         
-    def get_monthly_chart(self) -> io.BytesIO:
-        reference = datetime.now().strftime("%Y-%m")
+    def get_monthly_chart(self, reference: str = None) -> io.BytesIO:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
         data = self.repository.get_expenses_by_category(reference)
         
         # If no data, return None

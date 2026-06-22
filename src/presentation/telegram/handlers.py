@@ -1,4 +1,5 @@
 import logging
+import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.config.settings import settings
@@ -89,6 +90,64 @@ class ExpenseTelegramHandler:
         except Exception as e:
             logger.error(f"Error in callback {query.data}: {e}")
             await query.edit_message_text("❌ Ocorreu um erro ao processar o relatório.")
+
+    async def handle_resumo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
+            return
+            
+        args = context.args
+        reference = None
+        if args:
+            ref_str = args[0]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                
+        summary = self.expense_service.get_monthly_summary(reference)
+        text = (
+            f"📊 Resumo do Mês ({reference or 'Atual'})\n\n"
+            f"📉 Despesas: R$ {summary['total_expenses']:.2f}\n"
+            f"📈 Receitas: R$ {summary['total_revenues']:.2f}\n"
+            f"⚖️ Saldo: R$ {summary['balance']:.2f}"
+        )
+        await update.message.reply_text(text)
+
+    async def handle_cartao(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
+            return
+            
+        args = context.args
+        if not args:
+            await update.message.reply_text("⚠️ Uso correto: /cartao <NomeDoCartao> [MM/AAAA]")
+            return
+            
+        card_name = args[0]
+        reference = None
+        if len(args) > 1:
+            ref_str = args[1]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                
+        details = self.expense_service.get_card_expenses_details(card_name, reference)
+        if not details:
+            await update.message.reply_text(f"Nenhuma despesa encontrada para o cartão '{card_name}' no mês {reference or 'atual'}.")
+            return
+            
+        text = f"💳 Detalhes do Cartão: {card_name} ({reference or 'Mês Atual'})\n\n"
+        total = 0
+        for t in details:
+            text += f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']}\n\n"
+            total += t['amount']
+        text += f"💰 **Total do Cartão:** R$ {total:.2f}"
+        
+        await update.message.reply_text(text, parse_mode="Markdown")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id

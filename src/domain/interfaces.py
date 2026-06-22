@@ -20,5 +20,9 @@ class IExpenseRepository(ABC):
         pass
 
     @abstractmethod
+    def get_card_expenses_details(self, card_name: str, reference: str) -> list:
+        pass
+
+    @abstractmethod
     def get_recent_expenses(self, limit: int = 10) -> list:
         pass

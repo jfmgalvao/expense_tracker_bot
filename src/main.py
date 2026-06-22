@@ -38,6 +38,8 @@ def main():
     
     application.add_handler(CommandHandler("start", telegram_handler.handle_start))
     application.add_handler(CommandHandler("menu", telegram_handler.handle_menu))
+    application.add_handler(CommandHandler("resumo", telegram_handler.handle_resumo))
+    application.add_handler(CommandHandler("cartao", telegram_handler.handle_cartao))
     application.add_handler(CallbackQueryHandler(telegram_handler.handle_callback))
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_handler.handle_message)
