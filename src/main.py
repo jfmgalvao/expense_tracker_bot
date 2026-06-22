@@ -39,8 +39,23 @@ def main():
         MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_handler.handle_message)
     )
     
-    # 5. Run
-    application.run_polling(drop_pending_updates=True)
+    # Verifica se está rodando no Render (que injeta o RENDER_EXTERNAL_URL)
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+    
+    if render_url:
+        # Modo Webhook (Para a nuvem - Gratuito no Render Web Services)
+        logger.info(f"Modo Webhook ativado. URL: {render_url}")
+        port = int(os.environ.get("PORT", "10000"))
+        
+        application.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            webhook_url=f"{render_url}/{settings.telegram_token}"
+        )
+    else:
+        # Modo Long Polling (Para desenvolvimento local)
+        logger.info("Modo Long Polling ativado (Local).")
+        application.run_polling(drop_pending_updates=True)
 
 if __name__ == '__main__':
     main()
