@@ -12,10 +12,14 @@ class ExpenseTelegramHandler:
         self.expense_service = expense_service
 
     async def get_authenticated_user(self, update: Update) -> dict:
-        chat_id = update.effective_chat.id
+        chat_id = update.effective_user.id
         user = self.expense_service.get_user(chat_id)
         if not user:
-            await update.message.reply_text("⛔ Você não está cadastrado. Envie `/iniciar NOME_DA_FAMILIA` para criar ou entrar em uma conta.", parse_mode="Markdown")
+            await update.message.reply_text("⛔ Você não está cadastrado. Envie `/iniciar NOME_FAMILIA` para criar ou entrar em uma conta.", parse_mode="Markdown")
+            return None
+        
+        # Sincroniza as despesas fixas para o mês atual sempre que interagir
+        self.expense_service.sync_fixed_expenses(user['family_group'])
         return user
 
     async def handle_iniciar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,7 +121,7 @@ class ExpenseTelegramHandler:
                 
                 text = "📋 Últimos 5 Gastos\n\n"
                 for t in recent:
-                    text += f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']} ({t['payment_method']})\n\n"
+                    text += f"• [ID: {t['id']}] {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']} ({t['payment_method']})\n\n"
                 await query.edit_message_text(text=text)
 
             elif query.data == "grafico_gastos":
@@ -182,7 +186,7 @@ class ExpenseTelegramHandler:
         text = f"💳 Detalhes do Cartão: {card_name} ({reference or 'Mês Atual'})\n\n"
         total = 0
         for t in details:
-            text += f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']}\n\n"
+            text += f"• [ID: {t['id']}] {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']}\n\n"
             total += t['amount']
         text += f"💰 **Total do Cartão:** R$ {total:.2f}"
         
@@ -202,6 +206,7 @@ class ExpenseTelegramHandler:
                 month, year = ref_str.split("/")
                 reference = f"{year}-{month}"
                 
+        self.expense_service.sync_fixed_expenses(user['family_group'], reference)
         details = self.expense_service.get_all_expenses_by_month(user['family_group'], reference)
         if not details:
             await update.message.reply_text(f"Nenhuma despesa encontrada no mês {reference or 'atual'}.")
@@ -211,7 +216,8 @@ class ExpenseTelegramHandler:
         total = 0
         messages_to_send = []
         for t in details:
-            line = f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            fixa_tag = "📌 " if t.get('is_fixed') else ""
+            line = f"• [ID: {t['id']}] {fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
             if len(text) + len(line) > 3800:
                 messages_to_send.append(text)
                 text = ""
@@ -241,7 +247,7 @@ class ExpenseTelegramHandler:
         await update.message.reply_text("Gerando gráfico de balanço, aguarde... ⏳")
         chart_buf = self.expense_service.get_income_vs_expense_chart(user['family_group'], reference)
         if chart_buf:
-            await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
+            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=chart_buf)
             await update.message.reply_text(f"Aqui está o balanço de {reference or 'este mês'}!")
         else:
             await update.message.reply_text("Não há dados suficientes para gerar o gráfico.")
@@ -252,10 +258,12 @@ class ExpenseTelegramHandler:
             "🔹 <code>/iniciar NOME_FAMILIA</code> - Cadastra-se em uma conta familiar.\n"
             "🔹 <code>/menu</code> - Abre os botões interativos.\n"
             "🔹 <code>/resumo [MM/AAAA]</code> - Mostra totais de entradas e saídas.\n"
-            "🔹 <code>/detalhamento [MM/AAAA]</code> - Lista detalhada de todos os gastos.\n"
+            "🔹 <code>/detalhamento [MM/AAAA]</code> - Lista detalhada de todos os gastos com IDs.\n"
             "🔹 <code>/balanco [MM/AAAA]</code> - Gráfico visual de Receitas x Despesas.\n"
             "🔹 <code>/cartao NOME [MM/AAAA]</code> - Detalha faturas do cartão.\n"
             "🔹 <code>/total_gasto PALAVRA [MM/AAAA]</code> - Busca gastos por palavra.\n"
+            "🔹 <code>/fixa Valor Cartao Categoria Descricao</code> - Adiciona uma despesa recorrente (todo mês).\n"
+            "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
             "💡 <b>Como adicionar uma despesa:</b>\n"
             "O formato deve ser: <b>Valor | Cartão | Categoria | Descrição</b>\n\n"
@@ -294,6 +302,7 @@ class ExpenseTelegramHandler:
         else:
             keyword = " ".join(args)
                 
+        self.expense_service.sync_fixed_expenses(user['family_group'], reference)
         details = self.expense_service.get_expenses_by_keyword(keyword, user['family_group'], reference)
         if not details:
             await update.message.reply_text(f"Nenhum gasto encontrado para '{keyword}' no mês {reference or 'atual'}.")
@@ -303,7 +312,8 @@ class ExpenseTelegramHandler:
         total = 0
         messages_to_send = []
         for t in details:
-            line = f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            fixa_tag = "📌 " if t.get('is_fixed') else ""
+            line = f"• [ID: {t['id']}] {fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
             if len(text) + len(line) > 3800:
                 messages_to_send.append(text)
                 text = ""
@@ -315,6 +325,41 @@ class ExpenseTelegramHandler:
         
         for msg in messages_to_send:
             await update.message.reply_text(msg, parse_mode="Markdown")
+
+    async def handle_fixa(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        try:
+            msg_text = update.message.text.replace("/fixa", "").strip()
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+                
+            expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'], is_fixed=True)
+            await update.message.reply_text(
+                f"✅ 📌 Despesa Fixa registrada com sucesso! [ID: {expense.id}]\nEla será clonada automaticamente para os próximos meses.\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/fixa Valor Cartão Categoria Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_remover(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        args = context.args
+        if not args or not args[0].isdigit():
+            await update.message.reply_text("⚠️ Informe o ID da despesa. Exemplo: `/remover 105`", parse_mode="Markdown")
+            return
+            
+        expense_id = int(args[0])
+        success = self.expense_service.delete_expense(expense_id, user['family_group'])
+        
+        if success:
+            await update.message.reply_text(f"✅ Despesa ID {expense_id} removida com sucesso!\n\nSe ela era uma despesa fixa do mês atual, ela não será mais clonada para o mês seguinte.")
+        else:
+            await update.message.reply_text(f"❌ Não encontrei nenhuma despesa com ID {expense_id} na sua família.")
 
     async def handle_unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(

@@ -134,7 +134,7 @@ class PostgresExpenseRepository(IExpenseRepository):
     def get_expenses_by_keyword(self, keyword: str, reference: str, family_group: str) -> list:
         table_name = f"transactions_{family_group.lower()}"
         query = f"""
-            SELECT id, amount, category, description, created_at, payment_method
+            SELECT id, amount, category, description, created_at, payment_method, is_fixed
             FROM {table_name}
             WHERE reference = %s AND type = 'EXPENSE' 
               AND (description ILIKE %s OR category ILIKE %s OR payment_method ILIKE %s)
@@ -154,10 +154,55 @@ class PostgresExpenseRepository(IExpenseRepository):
                         "category": row[2],
                         "description": row[3],
                         "date": row[4].strftime("%d/%m") if row[4] else "",
-                        "payment_method": row[5]
+                        "payment_method": row[5],
+                        "is_fixed": row[6]
                     }
                     for row in rows
                 ]
+        finally:
+            if conn:
+                conn.close()
+
+    def delete_expense(self, expense_id: int, family_group: str) -> bool:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"DELETE FROM {table_name} WHERE id = %s RETURNING id"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (expense_id,))
+                deleted = cur.fetchone()
+                conn.commit()
+                return bool(deleted)
+        finally:
+            if conn:
+                conn.close()
+
+    def clone_fixed_expenses(self, family_group: str, from_reference: str, to_reference: str) -> None:
+        table_name = f"transactions_{family_group.lower()}"
+        # Primeiro, verifica no sync_log
+        check_query = "SELECT 1 FROM sync_log WHERE family_group = %s AND reference = %s"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(check_query, (family_group, to_reference))
+                if cur.fetchone():
+                    return # Já foi clonado
+
+                # Clona as despesas fixas
+                clone_query = f"""
+                    INSERT INTO {table_name} (amount, payment_method, description, category, reference, status, is_fixed, notes, type)
+                    SELECT amount, payment_method, description, category, %s, status, is_fixed, 'Auto-clonado do mês anterior', type
+                    FROM {table_name}
+                    WHERE reference = %s AND is_fixed = TRUE
+                """
+                cur.execute(clone_query, (to_reference, from_reference))
+                
+                # Registra no sync_log
+                log_query = "INSERT INTO sync_log (family_group, reference) VALUES (%s, %s)"
+                cur.execute(log_query, (family_group, to_reference))
+                conn.commit()
         finally:
             if conn:
                 conn.close()

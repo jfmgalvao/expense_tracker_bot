@@ -16,7 +16,7 @@ class ExpenseService:
     def create_user(self, telegram_id: int, name: str, family_group: str) -> None:
         self.repository.create_user(telegram_id, name, family_group)
 
-    def process_expense_message(self, raw_message: str, family_group: str, user_name: str) -> Expense:
+    def process_expense_message(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False) -> Expense:
         """
         Faz o parse da mensagem: <Valor> <Cartão> <Categoria> <Descrição>
         Ex: 150 Nubank Alimentação Supermercado
@@ -49,20 +49,38 @@ class ExpenseService:
         return Expense(
             amount=amount,
             payment_method=payment_method,
-            category=category,
             description=description,
+            category=category,
             reference=reference,
             family_group=family_group,
-            status="PAGO",
-            is_fixed=False,
-            notes=f"Adicionado por {user_name}"
+            notes=f"Adicionado por {user_name}",
+            is_fixed=is_fixed
         )
 
-    def register_expense(self, raw_message: str, family_group: str, user_name: str) -> Expense:
-        expense = self.process_expense_message(raw_message, family_group, user_name)
+    def register_expense(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False) -> Expense:
+        expense = self.process_expense_message(raw_message, family_group, user_name, is_fixed)
         expense_id = self.repository.save(expense)
         expense.id = expense_id
         return expense
+
+    def delete_expense(self, expense_id: int, family_group: str) -> bool:
+        return self.repository.delete_expense(expense_id, family_group)
+
+    def sync_fixed_expenses(self, family_group: str, reference: str = None) -> None:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+            
+        # Calcula o mês anterior
+        year, month = map(int, reference.split("-"))
+        if month == 1:
+            prev_year = year - 1
+            prev_month = 12
+        else:
+            prev_year = year
+            prev_month = month - 1
+            
+        prev_reference = f"{prev_year}-{prev_month:02d}"
+        self.repository.clone_fixed_expenses(family_group, prev_reference, reference)
 
     def get_monthly_summary(self, family_group: str, reference: str = None) -> dict:
         if not reference:
