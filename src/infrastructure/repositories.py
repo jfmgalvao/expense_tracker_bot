@@ -51,8 +51,8 @@ class PostgresExpenseRepository(IExpenseRepository):
     def get_monthly_summary(self, reference: str) -> dict:
         query = """
             SELECT 
-                COALESCE(SUM(CASE WHEN type = 'Despesa' THEN amount ELSE 0 END), 0) as total_expenses,
-                COALESCE(SUM(CASE WHEN type = 'Renda' THEN amount ELSE 0 END), 0) as total_revenues
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expenses,
+                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_revenues
             FROM transactions
             WHERE reference = %s
         """
@@ -75,7 +75,7 @@ class PostgresExpenseRepository(IExpenseRepository):
         query = """
             SELECT category, SUM(amount) as total
             FROM transactions
-            WHERE reference = %s AND type = 'Despesa'
+            WHERE reference = %s AND type = 'EXPENSE'
             GROUP BY category
             ORDER BY total DESC
         """
@@ -94,7 +94,7 @@ class PostgresExpenseRepository(IExpenseRepository):
         query = """
             SELECT payment_method, SUM(amount) as total
             FROM transactions
-            WHERE reference = %s AND type = 'Despesa'
+            WHERE reference = %s AND type = 'EXPENSE'
             GROUP BY payment_method
             ORDER BY total DESC
         """
@@ -113,7 +113,7 @@ class PostgresExpenseRepository(IExpenseRepository):
         query = """
             SELECT id, amount, category, description, created_at
             FROM transactions
-            WHERE reference = %s AND type = 'Despesa' AND payment_method ILIKE %s
+            WHERE reference = %s AND type = 'EXPENSE' AND payment_method ILIKE %s
             ORDER BY created_at DESC
         """
         conn = None
@@ -140,7 +140,7 @@ class PostgresExpenseRepository(IExpenseRepository):
         query = """
             SELECT id, amount, category, payment_method, description, created_at
             FROM transactions
-            WHERE type = 'Despesa'
+            WHERE type = 'EXPENSE'
             ORDER BY created_at DESC
             LIMIT %s
         """

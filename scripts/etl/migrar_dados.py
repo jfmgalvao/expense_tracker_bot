@@ -29,9 +29,23 @@ class ETLProcessor:
         for sheet_name, df in all_sheets.items():
             logger.info(f"Processando página: {sheet_name}")
             
-            # Tentar extrair a referência do nome da página se for um padrão tipo 'Jan 2023', etc.
-            # Caso contrário, usaremos o padrão atual YYYY-MM.
-            default_reference = default_date.strftime("%Y-%m")
+            import re
+            meses = {
+                'jan': '01', 'fev': '02', 'mar': '03', 'abr': '04',
+                'mai': '05', 'jun': '06', 'jul': '07', 'ago': '08',
+                'set': '09', 'out': '10', 'nov': '11', 'dez': '12'
+            }
+            default_reference = datetime.now().strftime("%Y-%m")
+            m = re.search(r'(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*\s*(20\d{2}|\d{2})', sheet_name.lower())
+            if m:
+                mes = meses[m.group(1)]
+                ano_str = m.group(2)
+                ano = ano_str if len(ano_str) == 4 else f"20{ano_str}"
+                default_reference = f"{ano}-{mes}"
+                try:
+                    default_date = datetime(int(ano), int(mes), 1)
+                except ValueError:
+                    pass
 
             for index, row in df.iterrows():
                 if index == 0:
