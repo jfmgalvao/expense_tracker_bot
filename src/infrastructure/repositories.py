@@ -136,6 +136,34 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
+    def get_all_expenses_by_month(self, reference: str) -> list:
+        query = """
+            SELECT id, amount, category, description, created_at, payment_method
+            FROM transactions
+            WHERE reference = %s AND type = 'EXPENSE'
+            ORDER BY created_at DESC
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (reference,))
+                rows = cur.fetchall()
+                return [
+                    {
+                        "id": row[0],
+                        "amount": float(row[1]),
+                        "category": row[2],
+                        "description": row[3],
+                        "date": row[4].strftime("%d/%m") if row[4] else "",
+                        "payment_method": row[5]
+                    }
+                    for row in rows
+                ]
+        finally:
+            if conn:
+                conn.close()
+
     def get_recent_expenses(self, limit: int = 10) -> list:
         query = """
             SELECT id, amount, category, payment_method, description, created_at

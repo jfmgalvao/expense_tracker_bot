@@ -24,5 +24,9 @@ class IExpenseRepository(ABC):
         pass
 
     @abstractmethod
+    def get_all_expenses_by_month(self, reference: str) -> list:
+        pass
+
+    @abstractmethod
     def get_recent_expenses(self, limit: int = 10) -> list:
         pass

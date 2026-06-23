@@ -71,9 +71,45 @@ class ExpenseService:
             reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_card_expenses_details(card_name, reference)
 
+    def get_all_expenses_by_month(self, reference: str = None) -> list:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_all_expenses_by_month(reference)
+
     def get_recent_expenses(self, limit: int = 10) -> list:
         return self.repository.get_recent_expenses(limit)
         
+    def get_income_vs_expense_chart(self, reference: str = None) -> io.BytesIO:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+            
+        summary = self.repository.get_monthly_summary(reference)
+        expenses = summary['total_expenses']
+        incomes = summary['total_revenues']
+        
+        if expenses == 0 and incomes == 0:
+            return None
+            
+        plt.figure(figsize=(8, 8))
+        labels = ['Despesas', 'Receitas']
+        sizes = [expenses, incomes]
+        colors = ['#e74c3c', '#2ecc71']
+        
+        # Don't show labels with 0 size
+        labels = [l for l, s in zip(labels, sizes) if s > 0]
+        colors = [c for c, s in zip(colors, sizes) if s > 0]
+        sizes = [s for s in sizes if s > 0]
+        
+        plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90, textprops={'fontsize': 14})
+        plt.title(f"Balanço: Despesas vs Receitas - {reference}", fontsize=16)
+        
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        plt.close()
+        
+        return buf
+
     def get_monthly_chart(self, reference: str = None) -> io.BytesIO:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")

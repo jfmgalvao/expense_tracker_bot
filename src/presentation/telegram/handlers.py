@@ -149,6 +149,66 @@ class ExpenseTelegramHandler:
         
         await update.message.reply_text(text, parse_mode="Markdown")
 
+    async def handle_detalhamento(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
+            return
+            
+        args = context.args
+        reference = None
+        if args:
+            ref_str = args[0]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                
+        details = self.expense_service.get_all_expenses_by_month(reference)
+        if not details:
+            await update.message.reply_text(f"Nenhuma despesa encontrada no mês {reference or 'atual'}.")
+            return
+            
+        text = f"📋 Detalhamento Completo ({reference or 'Mês Atual'})\n\n"
+        total = 0
+        messages_to_send = []
+        for t in details:
+            line = f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            if len(text) + len(line) > 3800:
+                messages_to_send.append(text)
+                text = ""
+            text += line
+            total += t['amount']
+            
+        text += f"💰 **Total de Despesas:** R$ {total:.2f}"
+        messages_to_send.append(text)
+        
+        for msg in messages_to_send:
+            await update.message.reply_text(msg, parse_mode="Markdown")
+
+    async def handle_balanco(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
+            return
+            
+        args = context.args
+        reference = None
+        if args:
+            ref_str = args[0]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                
+        await update.message.reply_text("Gerando gráfico de balanço, aguarde... ⏳")
+        chart_buf = self.expense_service.get_income_vs_expense_chart(reference)
+        if chart_buf:
+            await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
+            await update.message.reply_text(f"Aqui está o balanço de {reference or 'este mês'}!")
+        else:
+            await update.message.reply_text("Não há dados suficientes para gerar o gráfico.")
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         
