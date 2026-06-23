@@ -248,28 +248,28 @@ class ExpenseTelegramHandler:
 
     async def handle_ajuda(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         help_text = (
-            "🤖 *Comandos Disponíveis:*\n\n"
-            "🔹 `/iniciar NOME_FAMILIA` - Cadastra-se em uma conta familiar.\n"
-            "🔹 `/menu` - Abre os botões interativos.\n"
-            "🔹 `/resumo [MM/AAAA]` - Mostra totais de entradas e saídas.\n"
-            "🔹 `/detalhamento [MM/AAAA]` - Lista detalhada de todos os gastos.\n"
-            "🔹 `/balanco [MM/AAAA]` - Gráfico visual de Receitas x Despesas.\n"
-            "🔹 `/cartao NOME [MM/AAAA]` - Detalha faturas do cartão (ex: /cartao nubank).\n"
-            "🔹 `/total_gasto PALAVRA [MM/AAAA]` - Total gasto com um item, categoria ou cartão (ex: /total_gasto nubank).\n"
-            "🔹 `/ajuda` - Mostra esta lista de comandos.\n\n"
-            "💡 *Como adicionar uma despesa:*\n"
-            "O formato deve ser: *Valor | Cartão | Categoria | Descrição*\n\n"
-            "👉 *Exemplo Prático (Mês Atual):*\n"
-            "`150 Nubank Alimentacao Supermercado Extra`\n"
-            "• *Valor:* 150\n"
-            "• *Cartão:* Nubank\n"
-            "• *Categoria:* Alimentacao\n"
-            "• *Descrição:* Supermercado Extra\n\n"
-            "👉 *Exemplo Retroativo (Meses Anteriores):*\n"
+            "🤖 <b>Comandos Disponíveis:</b>\n\n"
+            "🔹 <code>/iniciar NOME_FAMILIA</code> - Cadastra-se em uma conta familiar.\n"
+            "🔹 <code>/menu</code> - Abre os botões interativos.\n"
+            "🔹 <code>/resumo [MM/AAAA]</code> - Mostra totais de entradas e saídas.\n"
+            "🔹 <code>/detalhamento [MM/AAAA]</code> - Lista detalhada de todos os gastos.\n"
+            "🔹 <code>/balanco [MM/AAAA]</code> - Gráfico visual de Receitas x Despesas.\n"
+            "🔹 <code>/cartao NOME [MM/AAAA]</code> - Detalha faturas do cartão.\n"
+            "🔹 <code>/total_gasto PALAVRA [MM/AAAA]</code> - Busca gastos por palavra.\n"
+            "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
+            "💡 <b>Como adicionar uma despesa:</b>\n"
+            "O formato deve ser: <b>Valor | Cartão | Categoria | Descrição</b>\n\n"
+            "👉 <b>Exemplo Prático (Mês Atual):</b>\n"
+            "<code>150 Nubank Alimentacao Supermercado Extra</code>\n"
+            "• <b>Valor:</b> 150\n"
+            "• <b>Cartão:</b> Nubank\n"
+            "• <b>Categoria:</b> Alimentacao\n"
+            "• <b>Descrição:</b> Supermercado Extra\n\n"
+            "👉 <b>Exemplo Retroativo (Meses Anteriores):</b>\n"
             "Basta adicionar o mês e o ano no final da mensagem:\n"
-            "`150 Nubank Alimentacao Supermercado Extra 05/2026`"
+            "<code>150 Nubank Alimentacao Supermercado Extra 05/2026</code>"
         )
-        await update.message.reply_text(help_text, parse_mode="Markdown")
+        await update.message.reply_text(help_text, parse_mode="HTML")
 
     async def handle_total_gasto(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)
