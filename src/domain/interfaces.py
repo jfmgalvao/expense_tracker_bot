@@ -23,6 +23,10 @@ class IExpenseRepository(ABC):
         pass
 
     @abstractmethod
+    def get_expenses_by_keyword(self, keyword: str, reference: str, family_group: str) -> list:
+        pass
+
+    @abstractmethod
     def get_all_expenses_by_month(self, reference: str, family_group: str) -> list:
         pass
 

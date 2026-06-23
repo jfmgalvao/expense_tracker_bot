@@ -131,6 +131,37 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
+    def get_expenses_by_keyword(self, keyword: str, reference: str, family_group: str) -> list:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"""
+            SELECT id, amount, category, description, created_at, payment_method
+            FROM {table_name}
+            WHERE reference = %s AND type = 'EXPENSE' 
+              AND (description ILIKE %s OR category ILIKE %s OR payment_method ILIKE %s)
+            ORDER BY created_at DESC
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                search_term = f"%{keyword}%"
+                cur.execute(query, (reference, search_term, search_term, search_term))
+                rows = cur.fetchall()
+                return [
+                    {
+                        "id": row[0],
+                        "amount": float(row[1]),
+                        "category": row[2],
+                        "description": row[3],
+                        "date": row[4].strftime("%d/%m") if row[4] else "",
+                        "payment_method": row[5]
+                    }
+                    for row in rows
+                ]
+        finally:
+            if conn:
+                conn.close()
+
     def get_all_expenses_by_month(self, reference: str, family_group: str) -> list:
         table_name = f"transactions_{family_group.lower()}"
         query = f"""

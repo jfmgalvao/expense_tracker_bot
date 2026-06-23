@@ -255,6 +255,7 @@ class ExpenseTelegramHandler:
             "🔹 `/detalhamento [MM/AAAA]` - Lista detalhada de todos os gastos.\n"
             "🔹 `/balanco [MM/AAAA]` - Gráfico visual de Receitas x Despesas.\n"
             "🔹 `/cartao NOME [MM/AAAA]` - Detalha faturas do cartão (ex: /cartao nubank).\n"
+            "🔹 `/total_gasto PALAVRA [MM/AAAA]` - Total gasto com um item, categoria ou cartão (ex: /total_gasto nubank).\n"
             "🔹 `/ajuda` - Mostra esta lista de comandos.\n\n"
             "💡 *Como adicionar uma despesa:*\n"
             "O formato deve ser: *Valor | Cartão | Categoria | Descrição*\n\n"
@@ -269,6 +270,51 @@ class ExpenseTelegramHandler:
             "`150 Nubank Alimentacao Supermercado Extra 05/2026`"
         )
         await update.message.reply_text(help_text, parse_mode="Markdown")
+
+    async def handle_total_gasto(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+            
+        args = context.args
+        if not args:
+            await update.message.reply_text("⚠️ Envie o comando com o nome do item. Ex: `/total_gasto nubank`", parse_mode="Markdown")
+            return
+            
+        keyword = args[0]
+        reference = None
+        if len(args) > 1:
+            ref_str = args[-1]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+                keyword = " ".join(args[:-1])
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                keyword = " ".join(args[:-1])
+        else:
+            keyword = " ".join(args)
+                
+        details = self.expense_service.get_expenses_by_keyword(keyword, user['family_group'], reference)
+        if not details:
+            await update.message.reply_text(f"Nenhum gasto encontrado para '{keyword}' no mês {reference or 'atual'}.")
+            return
+            
+        text = f"🔍 Resultado para: *{keyword.upper()}* ({reference or 'Mês Atual'})\n\n"
+        total = 0
+        messages_to_send = []
+        for t in details:
+            line = f"• {t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            if len(text) + len(line) > 3800:
+                messages_to_send.append(text)
+                text = ""
+            text += line
+            total += t['amount']
+            
+        text += f"💰 **Total Gasto:** R$ {total:.2f}"
+        messages_to_send.append(text)
+        
+        for msg in messages_to_send:
+            await update.message.reply_text(msg, parse_mode="Markdown")
 
     async def handle_unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(

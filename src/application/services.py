@@ -79,6 +79,11 @@ class ExpenseService:
             reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_card_expenses_details(card_name, reference, family_group)
 
+    def get_expenses_by_keyword(self, keyword: str, family_group: str, reference: str = None) -> list:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_expenses_by_keyword(keyword, reference, family_group)
+
     def get_all_expenses_by_month(self, family_group: str, reference: str = None) -> list:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
