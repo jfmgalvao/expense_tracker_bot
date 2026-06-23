@@ -34,7 +34,8 @@ class ExpenseTelegramHandler:
             return
             
         self.expense_service.create_user(chat_id, name, family_group)
-        await update.message.reply_text(f"✅ Cadastrado com sucesso na família: **{family_group}**!\n\nAgora você já pode lançar suas despesas e ver relatórios.", parse_mode="Markdown")
+        safe_group_name = family_group.replace('_', '\\_')
+        await update.message.reply_text(f"✅ Cadastrado com sucesso na família: *{safe_group_name}*!\n\nAgora você já pode lançar suas despesas e ver relatórios.", parse_mode="Markdown")
         await self.handle_menu(update, context)
 
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
