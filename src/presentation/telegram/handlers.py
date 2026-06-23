@@ -256,9 +256,17 @@ class ExpenseTelegramHandler:
             "🔹 `/balanco [MM/AAAA]` - Gráfico visual de Receitas x Despesas.\n"
             "🔹 `/cartao NOME [MM/AAAA]` - Detalha faturas do cartão (ex: /cartao nubank).\n"
             "🔹 `/ajuda` - Mostra esta lista de comandos.\n\n"
-            "💡 *Para adicionar um gasto ou receita:*\n"
-            "Envie uma mensagem de texto simples:\n"
-            "👉 `150 Nubank Alimentação Supermercado`"
+            "💡 *Como adicionar uma despesa:*\n"
+            "O formato deve ser: *Valor | Cartão | Categoria | Descrição*\n\n"
+            "👉 *Exemplo Prático (Mês Atual):*\n"
+            "`150 Nubank Alimentacao Supermercado Extra`\n"
+            "• *Valor:* 150\n"
+            "• *Cartão:* Nubank\n"
+            "• *Categoria:* Alimentacao\n"
+            "• *Descrição:* Supermercado Extra\n\n"
+            "👉 *Exemplo Retroativo (Meses Anteriores):*\n"
+            "Basta adicionar o mês e o ano no final da mensagem:\n"
+            "`150 Nubank Alimentacao Supermercado Extra 05/2026`"
         )
         await update.message.reply_text(help_text, parse_mode="Markdown")
 
