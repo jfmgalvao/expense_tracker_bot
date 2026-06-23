@@ -12,70 +12,63 @@ class PostgresExpenseRepository(IExpenseRepository):
     def save(self, expense: Expense) -> int:
         query = """
             INSERT INTO transactions (
-                created_at, reference, description, amount, 
-                category, payment_method, type, status, is_fixed, notes
-            )
-            VALUES (CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id;
+                amount, payment_method, description, category, reference, status, is_fixed, notes, type, family_group
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
         """
         conn = None
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(
-                    query, 
-                    (
-                        expense.reference,
-                        expense.description, 
-                        expense.amount, 
-                        expense.category,
-                        expense.payment_method, 
-                        expense.transaction_type.value, 
-                        expense.status,
-                        expense.is_fixed,
-                        expense.notes
-                    )
-                )
-                transaction_id = cur.fetchone()[0]
+                cur.execute(query, (
+                    expense.amount,
+                    expense.payment_method,
+                    expense.description,
+                    expense.category,
+                    expense.reference,
+                    expense.status,
+                    expense.is_fixed,
+                    expense.notes,
+                    expense.transaction_type.value,
+                    expense.family_group
+                ))
+                expense_id = cur.fetchone()[0]
                 conn.commit()
-                return transaction_id
-        except Exception as e:
-            logger.error(f"Error saving expense to database: {e}")
-            if conn:
-                conn.rollback()
-            raise
+                return expense_id
         finally:
             if conn:
                 conn.close()
 
-    def get_monthly_summary(self, reference: str) -> dict:
+    def get_monthly_summary(self, reference: str, family_group: str) -> dict:
         query = """
             SELECT 
                 COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expenses,
                 COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_revenues
             FROM transactions
-            WHERE reference = %s
+            WHERE reference = %s AND family_group = %s
         """
         conn = None
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (reference,))
+                cur.execute(query, (reference, family_group))
                 row = cur.fetchone()
+                expenses = float(row[0]) if row else 0.0
+                revenues = float(row[1]) if row else 0.0
                 return {
-                    "total_expenses": float(row[0]),
-                    "total_revenues": float(row[1]),
-                    "balance": float(row[1] - row[0])
+                    "total_expenses": expenses,
+                    "total_revenues": revenues,
+                    "balance": revenues - expenses
                 }
         finally:
             if conn:
                 conn.close()
 
-    def get_expenses_by_category(self, reference: str) -> dict:
+    def get_expenses_by_category(self, reference: str, family_group: str) -> dict:
         query = """
             SELECT category, SUM(amount) as total
             FROM transactions
-            WHERE reference = %s AND type = 'EXPENSE'
+            WHERE reference = %s AND type = 'EXPENSE' AND family_group = %s
             GROUP BY category
             ORDER BY total DESC
         """
@@ -83,18 +76,17 @@ class PostgresExpenseRepository(IExpenseRepository):
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (reference,))
-                rows = cur.fetchall()
-                return {row[0]: float(row[1]) for row in rows}
+                cur.execute(query, (reference, family_group))
+                return {row[0]: float(row[1]) for row in cur.fetchall()}
         finally:
             if conn:
                 conn.close()
 
-    def get_expenses_by_payment_method(self, reference: str) -> dict:
+    def get_expenses_by_payment_method(self, reference: str, family_group: str) -> dict:
         query = """
             SELECT payment_method, SUM(amount) as total
             FROM transactions
-            WHERE reference = %s AND type = 'EXPENSE'
+            WHERE reference = %s AND type = 'EXPENSE' AND family_group = %s
             GROUP BY payment_method
             ORDER BY total DESC
         """
@@ -102,25 +94,24 @@ class PostgresExpenseRepository(IExpenseRepository):
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (reference,))
-                rows = cur.fetchall()
-                return {row[0]: float(row[1]) for row in rows}
+                cur.execute(query, (reference, family_group))
+                return {row[0]: float(row[1]) for row in cur.fetchall()}
         finally:
             if conn:
                 conn.close()
 
-    def get_card_expenses_details(self, card_name: str, reference: str) -> list:
+    def get_card_expenses_details(self, card_name: str, reference: str, family_group: str) -> list:
         query = """
             SELECT id, amount, category, description, created_at
             FROM transactions
-            WHERE reference = %s AND type = 'EXPENSE' AND payment_method ILIKE %s
+            WHERE reference = %s AND type = 'EXPENSE' AND payment_method ILIKE %s AND family_group = %s
             ORDER BY created_at DESC
         """
         conn = None
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (reference, f"%{card_name}%"))
+                cur.execute(query, (reference, f"%{card_name}%", family_group))
                 rows = cur.fetchall()
                 return [
                     {
@@ -136,18 +127,18 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
-    def get_all_expenses_by_month(self, reference: str) -> list:
+    def get_all_expenses_by_month(self, reference: str, family_group: str) -> list:
         query = """
             SELECT id, amount, category, description, created_at, payment_method
             FROM transactions
-            WHERE reference = %s AND type = 'EXPENSE'
+            WHERE reference = %s AND type = 'EXPENSE' AND family_group = %s
             ORDER BY created_at DESC
         """
         conn = None
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (reference,))
+                cur.execute(query, (reference, family_group))
                 rows = cur.fetchall()
                 return [
                     {
@@ -164,11 +155,11 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
-    def get_recent_expenses(self, limit: int = 10) -> list:
+    def get_recent_expenses(self, family_group: str, limit: int = 10) -> list:
         query = """
             SELECT id, amount, category, payment_method, description, created_at
             FROM transactions
-            WHERE type = 'EXPENSE'
+            WHERE type = 'EXPENSE' AND family_group = %s
             ORDER BY created_at DESC
             LIMIT %s
         """
@@ -176,7 +167,7 @@ class PostgresExpenseRepository(IExpenseRepository):
         try:
             conn = self.db.get_connection()
             with conn.cursor() as cur:
-                cur.execute(query, (limit,))
+                cur.execute(query, (family_group, limit))
                 rows = cur.fetchall()
                 return [
                     {
@@ -189,6 +180,33 @@ class PostgresExpenseRepository(IExpenseRepository):
                     }
                     for row in rows
                 ]
+        finally:
+            if conn:
+                conn.close()
+
+    def get_user(self, telegram_id: int) -> dict:
+        query = "SELECT telegram_id, name, family_group FROM users WHERE telegram_id = %s"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (telegram_id,))
+                row = cur.fetchone()
+                if row:
+                    return {"telegram_id": row[0], "name": row[1], "family_group": row[2]}
+                return None
+        finally:
+            if conn:
+                conn.close()
+
+    def create_user(self, telegram_id: int, name: str, family_group: str) -> None:
+        query = "INSERT INTO users (telegram_id, name, family_group) VALUES (%s, %s, %s)"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (telegram_id, name, family_group))
+                conn.commit()
         finally:
             if conn:
                 conn.close()

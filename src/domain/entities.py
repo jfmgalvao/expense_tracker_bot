@@ -14,6 +14,7 @@ class Expense:
     description: str
     category: str
     reference: str
+    family_group: str
     status: str = "PAGO"
     is_fixed: bool = False
     notes: str = "Added via Telegram"

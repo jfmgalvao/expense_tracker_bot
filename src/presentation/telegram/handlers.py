@@ -11,10 +11,47 @@ class ExpenseTelegramHandler:
     def __init__(self, expense_service: ExpenseService):
         self.expense_service = expense_service
 
+    async def get_authenticated_user(self, update: Update) -> dict:
+        chat_id = update.effective_chat.id
+        user = self.expense_service.get_user(chat_id)
+        if not user:
+            await update.message.reply_text("⛔ Você não está cadastrado. Envie `/iniciar NOME_DA_FAMILIA` para criar ou entrar em uma conta.", parse_mode="Markdown")
+        return user
+
+    async def handle_iniciar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        chat_id = update.effective_chat.id
+        args = context.args
+        if not args:
+            await update.message.reply_text("⚠️ Envie o comando com o nome da família. Ex: `/iniciar MINHA_FAMILIA`", parse_mode="Markdown")
+            return
+            
+        family_group = args[0].upper()
+        name = update.effective_user.first_name or "Usuario"
+        
+        user = self.expense_service.get_user(chat_id)
+        if user:
+            await update.message.reply_text(f"Você já está cadastrado na família {user['family_group']}!")
+            return
+            
+        self.expense_service.create_user(chat_id, name, family_group)
+        await update.message.reply_text(f"✅ Cadastrado com sucesso na família: **{family_group}**!\n\nAgora você já pode lançar suas despesas e ver relatórios.", parse_mode="Markdown")
+        await self.handle_menu(update, context)
+
     async def handle_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"Received /start from {update.effective_chat.id}")
+        user = self.expense_service.get_user(update.effective_chat.id)
+        if not user:
+            await update.message.reply_text(
+                "👋 Olá! Eu sou o seu Bot Financeiro Multi-contas.\n\n"
+                "Para começar, você precisa criar ou entrar em uma conta familiar.\n"
+                "Envie: `/iniciar NOME_DA_SUA_FAMILIA`\n"
+                "Exemplo: `/iniciar SILVA`",
+                parse_mode="Markdown"
+            )
+            return
+
         await update.message.reply_text(
-            "👋 Olá! Eu sou o seu Bot Financeiro.\n\n"
+            f"👋 Olá, {user['name']} da família {user['family_group']}!\n\n"
             "Para registrar uma despesa, envie a mensagem no formato:\n"
             "<Valor> <Cartão> <Categoria> <Descrição>\n\n"
             "Exemplo: 150 Nubank Alimentação Supermercado"
@@ -42,15 +79,18 @@ class ExpenseTelegramHandler:
         await query.answer()
 
         chat_id = update.effective_chat.id
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            logger.warning(f"Unauthorized callback from {chat_id}")
+        user = self.expense_service.get_user(chat_id)
+        if not user:
+            await query.edit_message_text("⛔ Você não está cadastrado. Envie /iniciar NOME_DA_FAMILIA")
             return
+            
+        family_group = user['family_group']
 
         try:
             if query.data == "resumo_mensal":
-                summary = self.expense_service.get_monthly_summary()
+                summary = self.expense_service.get_monthly_summary(family_group)
                 text = (
-                    f"📊 Resumo do Mês Atual\n\n"
+                    f"📊 Resumo do Mês Atual ({family_group})\n\n"
                     f"📉 Despesas: R$ {summary['total_expenses']:.2f}\n"
                     f"📈 Receitas: R$ {summary['total_revenues']:.2f}\n"
                     f"⚖️ Saldo: R$ {summary['balance']:.2f}"
@@ -58,7 +98,7 @@ class ExpenseTelegramHandler:
                 await query.edit_message_text(text=text)
 
             elif query.data == "gastos_cartao":
-                data = self.expense_service.get_expenses_by_payment_method()
+                data = self.expense_service.get_expenses_by_payment_method(family_group)
                 if not data:
                     await query.edit_message_text("Não há despesas registradas neste mês.")
                     return
@@ -69,7 +109,7 @@ class ExpenseTelegramHandler:
                 await query.edit_message_text(text=text)
 
             elif query.data == "ultimos_gastos":
-                recent = self.expense_service.get_recent_expenses(5)
+                recent = self.expense_service.get_recent_expenses(family_group, 5)
                 if not recent:
                     await query.edit_message_text("Nenhuma despesa registrada recentemente.")
                     return
@@ -81,7 +121,7 @@ class ExpenseTelegramHandler:
 
             elif query.data == "grafico_gastos":
                 await query.edit_message_text("Gerando gráfico, aguarde... ⏳")
-                chart_buf = self.expense_service.get_monthly_chart()
+                chart_buf = self.expense_service.get_monthly_chart(family_group)
                 if chart_buf:
                     await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
                     await query.edit_message_text("Aqui está o gráfico do mês atual!")
@@ -92,9 +132,8 @@ class ExpenseTelegramHandler:
             await query.edit_message_text("❌ Ocorreu um erro ao processar o relatório.")
 
     async def handle_resumo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            return
+        user = await self.get_authenticated_user(update)
+        if not user: return
             
         args = context.args
         reference = None
@@ -106,9 +145,9 @@ class ExpenseTelegramHandler:
                 month, year = ref_str.split("/")
                 reference = f"{year}-{month}"
                 
-        summary = self.expense_service.get_monthly_summary(reference)
+        summary = self.expense_service.get_monthly_summary(user['family_group'], reference)
         text = (
-            f"📊 Resumo do Mês ({reference or 'Atual'})\n\n"
+            f"📊 Resumo do Mês ({reference or 'Atual'}) - {user['family_group']}\n\n"
             f"📉 Despesas: R$ {summary['total_expenses']:.2f}\n"
             f"📈 Receitas: R$ {summary['total_revenues']:.2f}\n"
             f"⚖️ Saldo: R$ {summary['balance']:.2f}"
@@ -116,9 +155,8 @@ class ExpenseTelegramHandler:
         await update.message.reply_text(text)
 
     async def handle_cartao(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            return
+        user = await self.get_authenticated_user(update)
+        if not user: return
             
         args = context.args
         if not args:
@@ -135,7 +173,7 @@ class ExpenseTelegramHandler:
                 month, year = ref_str.split("/")
                 reference = f"{year}-{month}"
                 
-        details = self.expense_service.get_card_expenses_details(card_name, reference)
+        details = self.expense_service.get_card_expenses_details(card_name, user['family_group'], reference)
         if not details:
             await update.message.reply_text(f"Nenhuma despesa encontrada para o cartão '{card_name}' no mês {reference or 'atual'}.")
             return
@@ -150,9 +188,8 @@ class ExpenseTelegramHandler:
         await update.message.reply_text(text, parse_mode="Markdown")
 
     async def handle_detalhamento(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            return
+        user = await self.get_authenticated_user(update)
+        if not user: return
             
         args = context.args
         reference = None
@@ -164,7 +201,7 @@ class ExpenseTelegramHandler:
                 month, year = ref_str.split("/")
                 reference = f"{year}-{month}"
                 
-        details = self.expense_service.get_all_expenses_by_month(reference)
+        details = self.expense_service.get_all_expenses_by_month(user['family_group'], reference)
         if not details:
             await update.message.reply_text(f"Nenhuma despesa encontrada no mês {reference or 'atual'}.")
             return
@@ -187,9 +224,8 @@ class ExpenseTelegramHandler:
             await update.message.reply_text(msg, parse_mode="Markdown")
 
     async def handle_balanco(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            return
+        user = await self.get_authenticated_user(update)
+        if not user: return
             
         args = context.args
         reference = None
@@ -202,7 +238,7 @@ class ExpenseTelegramHandler:
                 reference = f"{year}-{month}"
                 
         await update.message.reply_text("Gerando gráfico de balanço, aguarde... ⏳")
-        chart_buf = self.expense_service.get_income_vs_expense_chart(reference)
+        chart_buf = self.expense_service.get_income_vs_expense_chart(user['family_group'], reference)
         if chart_buf:
             await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
             await update.message.reply_text(f"Aqui está o balanço de {reference or 'este mês'}!")
@@ -210,20 +246,15 @@ class ExpenseTelegramHandler:
             await update.message.reply_text("Não há dados suficientes para gerar o gráfico.")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        
-        # Authorization check
-        if settings.allowed_chat_ids and chat_id not in settings.allowed_chat_ids:
-            logger.warning(f"Unauthorized access attempt from chat_id: {chat_id}")
-            await update.message.reply_text("⛔ Acesso não autorizado a este bot financeiro.")
-            return
+        user = await self.get_authenticated_user(update)
+        if not user: return
 
         raw_message = update.message.text
         if not raw_message:
             return
 
         try:
-            expense = self.expense_service.register_expense(raw_message)
+            expense = self.expense_service.register_expense(raw_message, user['family_group'], user['name'])
             
             await update.message.reply_text(
                 f"✅ **Despesa Registrada!**\n\n"

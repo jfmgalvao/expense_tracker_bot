@@ -37,6 +37,7 @@ def main():
     application = ApplicationBuilder().token(settings.telegram_token).build()
     
     application.add_handler(CommandHandler("start", telegram_handler.handle_start))
+    application.add_handler(CommandHandler("iniciar", telegram_handler.handle_iniciar))
     application.add_handler(CommandHandler("menu", telegram_handler.handle_menu))
     application.add_handler(CommandHandler("resumo", telegram_handler.handle_resumo))
     application.add_handler(CommandHandler("cartao", telegram_handler.handle_cartao))

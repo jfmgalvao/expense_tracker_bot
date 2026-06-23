@@ -10,7 +10,13 @@ class ExpenseService:
     def __init__(self, repository: IExpenseRepository):
         self.repository = repository
 
-    def process_expense_message(self, raw_message: str) -> Expense:
+    def get_user(self, telegram_id: int) -> dict:
+        return self.repository.get_user(telegram_id)
+
+    def create_user(self, telegram_id: int, name: str, family_group: str) -> None:
+        self.repository.create_user(telegram_id, name, family_group)
+
+    def process_expense_message(self, raw_message: str, family_group: str, user_name: str) -> Expense:
         """
         Faz o parse da mensagem: <Valor> <Cartão> <Categoria> <Descrição>
         Ex: 150 Nubank Alimentação Supermercado
@@ -46,44 +52,46 @@ class ExpenseService:
             category=category,
             description=description,
             reference=reference,
-            status="PAGO",  # Assumimos pago ao lançar via bot no dia a dia
-            is_fixed=False  # Assumimos gasto variável no dia a dia
+            family_group=family_group,
+            status="PAGO",
+            is_fixed=False,
+            notes=f"Adicionado por {user_name}"
         )
 
-    def register_expense(self, raw_message: str) -> Expense:
-        expense = self.process_expense_message(raw_message)
+    def register_expense(self, raw_message: str, family_group: str, user_name: str) -> Expense:
+        expense = self.process_expense_message(raw_message, family_group, user_name)
         expense_id = self.repository.save(expense)
         expense.id = expense_id
         return expense
 
-    def get_monthly_summary(self, reference: str = None) -> dict:
+    def get_monthly_summary(self, family_group: str, reference: str = None) -> dict:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
-        return self.repository.get_monthly_summary(reference)
+        return self.repository.get_monthly_summary(reference, family_group)
         
-    def get_expenses_by_payment_method(self, reference: str = None) -> dict:
+    def get_expenses_by_payment_method(self, family_group: str, reference: str = None) -> dict:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
-        return self.repository.get_expenses_by_payment_method(reference)
+        return self.repository.get_expenses_by_payment_method(reference, family_group)
 
-    def get_card_expenses_details(self, card_name: str, reference: str = None) -> list:
+    def get_card_expenses_details(self, card_name: str, family_group: str, reference: str = None) -> list:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
-        return self.repository.get_card_expenses_details(card_name, reference)
+        return self.repository.get_card_expenses_details(card_name, reference, family_group)
 
-    def get_all_expenses_by_month(self, reference: str = None) -> list:
+    def get_all_expenses_by_month(self, family_group: str, reference: str = None) -> list:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
-        return self.repository.get_all_expenses_by_month(reference)
+        return self.repository.get_all_expenses_by_month(reference, family_group)
 
-    def get_recent_expenses(self, limit: int = 10) -> list:
-        return self.repository.get_recent_expenses(limit)
+    def get_recent_expenses(self, family_group: str, limit: int = 10) -> list:
+        return self.repository.get_recent_expenses(family_group, limit)
         
-    def get_income_vs_expense_chart(self, reference: str = None) -> io.BytesIO:
+    def get_income_vs_expense_chart(self, family_group: str, reference: str = None) -> io.BytesIO:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
             
-        summary = self.repository.get_monthly_summary(reference)
+        summary = self.repository.get_monthly_summary(reference, family_group)
         expenses = summary['total_expenses']
         incomes = summary['total_revenues']
         
@@ -95,7 +103,6 @@ class ExpenseService:
         sizes = [expenses, incomes]
         colors = ['#e74c3c', '#2ecc71']
         
-        # Don't show labels with 0 size
         labels = [l for l, s in zip(labels, sizes) if s > 0]
         colors = [c for c, s in zip(colors, sizes) if s > 0]
         sizes = [s for s in sizes if s > 0]
@@ -110,19 +117,17 @@ class ExpenseService:
         
         return buf
 
-    def get_monthly_chart(self, reference: str = None) -> io.BytesIO:
+    def get_monthly_chart(self, family_group: str, reference: str = None) -> io.BytesIO:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
-        data = self.repository.get_expenses_by_category(reference)
+        data = self.repository.get_expenses_by_category(reference, family_group)
         
-        # If no data, return None
         if not data:
             return None
             
         categories = list(data.keys())
         amounts = list(data.values())
         
-        # Create chart
         plt.figure(figsize=(10, 6))
         sns.barplot(x=amounts, y=categories, palette="viridis")
         plt.title(f"Despesas por Categoria - {reference}", fontsize=16)
@@ -130,7 +135,6 @@ class ExpenseService:
         plt.ylabel("Categoria", fontsize=12)
         plt.tight_layout()
         
-        # Save to buffer
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
         buf.seek(0)
