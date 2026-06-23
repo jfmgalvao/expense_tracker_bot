@@ -246,6 +246,28 @@ class ExpenseTelegramHandler:
         else:
             await update.message.reply_text("Não há dados suficientes para gerar o gráfico.")
 
+    async def handle_ajuda(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        help_text = (
+            "🤖 *Comandos Disponíveis:*\n\n"
+            "🔹 `/iniciar NOME_FAMILIA` - Cadastra-se em uma conta familiar.\n"
+            "🔹 `/menu` - Abre os botões interativos.\n"
+            "🔹 `/resumo [MM/AAAA]` - Mostra totais de entradas e saídas.\n"
+            "🔹 `/detalhamento [MM/AAAA]` - Lista detalhada de todos os gastos.\n"
+            "🔹 `/balanco [MM/AAAA]` - Gráfico visual de Receitas x Despesas.\n"
+            "🔹 `/cartao NOME [MM/AAAA]` - Detalha faturas do cartão (ex: /cartao nubank).\n"
+            "🔹 `/ajuda` - Mostra esta lista de comandos.\n\n"
+            "💡 *Para adicionar um gasto ou receita:*\n"
+            "Envie uma mensagem de texto simples:\n"
+            "👉 `150 Nubank Alimentação Supermercado`"
+        )
+        await update.message.reply_text(help_text, parse_mode="Markdown")
+
+    async def handle_unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text(
+            "❓ Comando não reconhecido.\n"
+            "Digite /ajuda para ver a lista de comandos disponíveis."
+        )
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)
         if not user: return

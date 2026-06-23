@@ -43,9 +43,18 @@ def main():
     application.add_handler(CommandHandler("cartao", telegram_handler.handle_cartao))
     application.add_handler(CommandHandler("detalhamento", telegram_handler.handle_detalhamento))
     application.add_handler(CommandHandler("balanco", telegram_handler.handle_balanco))
+    application.add_handler(CommandHandler("ajuda", telegram_handler.handle_ajuda))
+    application.add_handler(CommandHandler("help", telegram_handler.handle_ajuda))
     application.add_handler(CallbackQueryHandler(telegram_handler.handle_callback))
+    
+    # Processa mensagens de texto normais (inserção de gastos)
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_handler.handle_message)
+    )
+    
+    # Processa comandos desconhecidos (deve ser o último handler de comandos)
+    application.add_handler(
+        MessageHandler(filters.COMMAND, telegram_handler.handle_unknown_command)
     )
     
     # Verifica se está rodando no Render (que injeta o RENDER_EXTERNAL_URL)
