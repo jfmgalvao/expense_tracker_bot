@@ -16,14 +16,14 @@ class ExpenseService:
     def create_user(self, telegram_id: int, name: str, family_group: str) -> None:
         self.repository.create_user(telegram_id, name, family_group)
 
-    def process_expense_message(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False) -> Expense:
+    def process_expense_message(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False, transaction_type: str = 'EXPENSE') -> Expense:
         """
         Faz o parse da mensagem: <Valor> <Cartão> <Categoria> <Descrição>
         Ex: 150 Nubank Alimentação Supermercado
         """
         parts = raw_message.strip().split(" ", 3)
         if len(parts) < 4:
-            raise ValueError("Formato inválido. Use: <Valor> <Cartão> <Categoria> <Descrição>")
+            raise ValueError("Formato inválido. Use: <Valor> <Cartão/Conta> <Categoria> <Descrição>")
 
         amount_str, payment_method, category, description = parts
         amount_str = amount_str.replace(",", ".")
@@ -46,6 +46,7 @@ class ExpenseService:
                 reference = f"{year}-{month}"
                 description = " ".join(desc_parts[:-1]) if len(desc_parts) > 1 else description
 
+        from src.domain.entities import TransactionType
         return Expense(
             amount=amount,
             payment_method=payment_method,
@@ -54,11 +55,12 @@ class ExpenseService:
             reference=reference,
             family_group=family_group,
             notes=f"Adicionado por {user_name}",
-            is_fixed=is_fixed
+            is_fixed=is_fixed,
+            transaction_type=TransactionType(transaction_type)
         )
 
-    def register_expense(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False) -> Expense:
-        expense = self.process_expense_message(raw_message, family_group, user_name, is_fixed)
+    def register_expense(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False, transaction_type: str = 'EXPENSE') -> Expense:
+        expense = self.process_expense_message(raw_message, family_group, user_name, is_fixed, transaction_type)
         expense_id = self.repository.save(expense)
         expense.id = expense_id
         return expense

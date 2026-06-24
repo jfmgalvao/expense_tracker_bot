@@ -263,9 +263,11 @@ class ExpenseTelegramHandler:
             "🔹 <code>/cartao NOME [MM/AAAA]</code> - Detalha faturas do cartão.\n"
             "🔹 <code>/total_gasto PALAVRA [MM/AAAA]</code> - Busca gastos por palavra.\n"
             "🔹 <code>/fixa Valor Cartao Categoria Descricao</code> - Adiciona uma despesa recorrente (todo mês).\n"
+            "🔹 <code>/receita Valor Conta Categoria Descricao</code> - Adiciona uma entrada de dinheiro.\n"
+            "🔹 <code>/receita_fixa Valor Conta Categoria Descricao</code> - Adiciona uma receita recorrente (todo mês).\n"
             "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
-            "💡 <b>Como adicionar uma despesa:</b>\n"
+            "💡 <b>Como adicionar uma despesa normal:</b>\n"
             "O formato deve ser: <b>Valor | Cartão | Categoria | Descrição</b>\n\n"
             "👉 <b>Exemplo Prático (Mês Atual):</b>\n"
             "<code>150 Nubank Alimentacao Supermercado Extra</code>\n"
@@ -357,9 +359,50 @@ class ExpenseTelegramHandler:
         success = self.expense_service.delete_expense(expense_id, user['family_group'])
         
         if success:
-            await update.message.reply_text(f"✅ Despesa ID {expense_id} removida com sucesso!\n\nSe ela era uma despesa fixa do mês atual, ela não será mais clonada para o mês seguinte.")
+            await update.message.reply_text(f"✅ Lançamento ID {expense_id} removido com sucesso!\n\nSe era um lançamento fixo do mês atual, ele não será mais clonado para o mês seguinte.")
         else:
-            await update.message.reply_text(f"❌ Não encontrei nenhuma despesa com ID {expense_id} na sua família.")
+            await update.message.reply_text(f"❌ Não encontrei nenhum lançamento com ID {expense_id} na sua família.")
+
+    async def handle_receita(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        try:
+            msg_text = update.message.text.replace("/receita", "").strip()
+            # Precisamos evitar que /receita_fixa caia aqui se houver um bug no routing, 
+            # mas o dispatcher do telegram resolve isso pelo nome exato do comando
+            if msg_text.startswith("_fixa"):
+                return # Ignora caso seja interceptado incorretamente
+                
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+                
+            expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'], transaction_type='INCOME')
+            await update.message.reply_text(
+                f"✅ Receita registrada! [ID: {expense.id}]\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita Valor Conta Categoria Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_receita_fixa(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        try:
+            msg_text = update.message.text.replace("/receita_fixa", "").strip()
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+                
+            expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'], is_fixed=True, transaction_type='INCOME')
+            await update.message.reply_text(
+                f"✅ 📌 Receita Fixa registrada com sucesso! [ID: {expense.id}]\nEla será clonada automaticamente para os próximos meses.\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita_fixa Valor Conta Categoria Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
 
     async def handle_unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
