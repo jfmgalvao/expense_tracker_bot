@@ -7,6 +7,14 @@ class IExpenseRepository(ABC):
         pass
 
     @abstractmethod
+    def delete_expense(self, expense_id: int, family_group: str) -> bool:
+        pass
+
+    @abstractmethod
+    def update_expense_amount(self, expense_id: int, new_amount: float, family_group: str) -> bool:
+        pass
+
+    @abstractmethod
     def get_monthly_summary(self, reference: str, family_group: str) -> dict:
         pass
 

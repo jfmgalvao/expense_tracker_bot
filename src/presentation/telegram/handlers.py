@@ -318,6 +318,7 @@ class ExpenseTelegramHandler:
             "🔹 <code>/receita Valor Conta Categoria Descricao</code> - Adiciona uma entrada de dinheiro.\n"
             "🔹 <code>/receita_fixa Valor Conta Categoria Descricao</code> - Adiciona uma receita recorrente (todo mês).\n"
             "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
+            "🔹 <code>/editar_valor ID NOVO_VALOR</code> - Altera o valor de um lançamento.\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
             "💡 <b>Como adicionar uma despesa normal:</b>\n"
             "O formato deve ser: <b>Valor | Cartão | Categoria | Descrição</b>\n\n"
@@ -414,6 +415,28 @@ class ExpenseTelegramHandler:
             await update.message.reply_text(f"✅ Lançamento ID {expense_id} removido com sucesso!\n\nSe era um lançamento fixo do mês atual, ele não será mais clonado para o mês seguinte.")
         else:
             await update.message.reply_text(f"❌ Não encontrei nenhum lançamento com ID {expense_id} na sua família.")
+
+    async def handle_editar_valor(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        args = context.args
+        if not args or len(args) < 2:
+            await update.message.reply_text("⚠️ Formato inválido. Use: `/editar_valor ID NOVO_VALOR`\nExemplo: `/editar_valor 105 150.50`", parse_mode="Markdown")
+            return
+            
+        try:
+            expense_id = int(args[0])
+            new_amount = float(args[1].replace(",", "."))
+            
+            success = self.expense_service.update_expense_amount(expense_id, new_amount, user['family_group'])
+            
+            if success:
+                await update.message.reply_text(f"✅ Valor do lançamento ID {expense_id} atualizado para R$ {new_amount:.2f} com sucesso!")
+            else:
+                await update.message.reply_text(f"❌ Não encontrei nenhum lançamento com ID {expense_id} na sua família.")
+        except ValueError:
+            await update.message.reply_text("⚠️ Certifique-se de usar números válidos para o ID e para o Valor.")
 
     async def handle_receita(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)

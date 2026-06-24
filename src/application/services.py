@@ -68,6 +68,9 @@ class ExpenseService:
     def delete_expense(self, expense_id: int, family_group: str) -> bool:
         return self.repository.delete_expense(expense_id, family_group)
 
+    def update_expense_amount(self, expense_id: int, new_amount: float, family_group: str) -> bool:
+        return self.repository.update_expense_amount(expense_id, new_amount, family_group)
+
     def sync_fixed_expenses(self, family_group: str, reference: str = None) -> None:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")

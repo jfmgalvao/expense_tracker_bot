@@ -178,6 +178,21 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
+    def update_expense_amount(self, expense_id: int, new_amount: float, family_group: str) -> bool:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"UPDATE {table_name} SET amount = %s WHERE id = %s RETURNING id"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (new_amount, expense_id))
+                updated = cur.fetchone()
+                conn.commit()
+                return bool(updated)
+        finally:
+            if conn:
+                conn.close()
+
     def clone_fixed_expenses(self, family_group: str, from_reference: str, to_reference: str) -> None:
         table_name = f"transactions_{family_group.lower()}"
         # Primeiro, verifica no sync_log

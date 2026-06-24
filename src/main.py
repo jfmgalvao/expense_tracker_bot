@@ -49,6 +49,7 @@ def main():
     application.add_handler(CommandHandler("receita", telegram_handler.handle_receita))
     application.add_handler(CommandHandler("receita_fixa", telegram_handler.handle_receita_fixa))
     application.add_handler(CommandHandler("remover", telegram_handler.handle_remover))
+    application.add_handler(CommandHandler("editar_valor", telegram_handler.handle_editar_valor))
     application.add_handler(CommandHandler("ajuda", telegram_handler.handle_ajuda))
     application.add_handler(CommandHandler("help", telegram_handler.handle_ajuda))
     application.add_handler(CallbackQueryHandler(telegram_handler.handle_callback))
