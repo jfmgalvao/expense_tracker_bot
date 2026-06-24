@@ -18,14 +18,40 @@ class ExpenseService:
 
     def process_expense_message(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False, transaction_type: str = 'EXPENSE') -> Expense:
         """
-        Faz o parse da mensagem: <Valor> <Cartão> <Categoria> <Descrição>
-        Ex: 150 Nubank Alimentação Supermercado
+        Faz o parse da mensagem suportando formato por vírgula (ideal) ou espaço (legado).
+        Ex: 150,50, Conta Corrente, Lazer, Cinema no shopping
         """
-        parts = raw_message.strip().split(" ", 3)
-        if len(parts) < 4:
-            raise ValueError("Formato inválido. Use: <Valor> <Cartão/Conta> <Categoria> <Descrição>")
+        if "," in raw_message:
+            raw_parts = [p.strip() for p in raw_message.split(",")]
+            parts = []
+            if len(raw_parts) >= 2:
+                try:
+                    # Verifica se a primeira vírgula foi usada como centavos (ex: 150,50)
+                    float(f"{raw_parts[0]}.{raw_parts[1]}")
+                    parts.append(f"{raw_parts[0]}.{raw_parts[1]}")
+                    parts.extend(raw_parts[2:])
+                except ValueError:
+                    parts = raw_parts
+            else:
+                parts = raw_parts
 
-        amount_str, payment_method, category, description = parts
+            if len(parts) >= 4:
+                amount_str = parts[0]
+                payment_method = parts[1]
+                category = parts[2]
+                description = ", ".join(parts[3:])
+            else:
+                # Fallback para espaço se não encontrou os campos
+                parts = raw_message.strip().split(" ", 3)
+                if len(parts) < 4:
+                    raise ValueError("Formato inválido. Use: Valor, Cartão/Conta, Categoria, Descrição")
+                amount_str, payment_method, category, description = parts
+        else:
+            parts = raw_message.strip().split(" ", 3)
+            if len(parts) < 4:
+                raise ValueError("Formato inválido. Use: Valor, Cartão/Conta, Categoria, Descrição")
+            amount_str, payment_method, category, description = parts
+
         amount_str = amount_str.replace(",", ".")
         
         try:

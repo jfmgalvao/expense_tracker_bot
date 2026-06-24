@@ -321,16 +321,17 @@ class ExpenseTelegramHandler:
             "🔹 <code>/editar_valor ID NOVO_VALOR</code> - Altera o valor de um lançamento.\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
             "💡 <b>Como adicionar uma despesa normal:</b>\n"
-            "O formato deve ser: <b>Valor | Cartão | Categoria | Descrição</b>\n\n"
+            "Separe os campos por VÍRGULA ou ESPAÇO:\n"
+            "<b>Valor, Conta, Categoria, Descrição</b>\n\n"
             "👉 <b>Exemplo Prático (Mês Atual):</b>\n"
-            "<code>150 Nubank Alimentacao Supermercado Extra</code>\n"
-            "• <b>Valor:</b> 150\n"
-            "• <b>Cartão:</b> Nubank\n"
+            "<code>150,50, Conta Corrente, Alimentacao, Supermercado Extra</code>\n"
+            "• <b>Valor:</b> 150,50\n"
+            "• <b>Conta:</b> Conta Corrente\n"
             "• <b>Categoria:</b> Alimentacao\n"
             "• <b>Descrição:</b> Supermercado Extra\n\n"
             "👉 <b>Exemplo Retroativo (Meses Anteriores):</b>\n"
             "Basta adicionar o mês e o ano no final da mensagem:\n"
-            "<code>150 Nubank Alimentacao Supermercado Extra 05/2026</code>"
+            "<code>150, Nubank, Alimentacao, Supermercado Extra, 05/2026</code>"
         )
         await update.message.reply_text(help_text, parse_mode="HTML")
 
