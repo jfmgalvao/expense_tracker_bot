@@ -317,6 +317,9 @@ class ExpenseTelegramHandler:
             "🔹 <code>/fixa Valor Cartao Categoria Descricao</code> - Adiciona uma despesa recorrente (todo mês).\n"
             "🔹 <code>/receita Valor Conta Categoria Descricao</code> - Adiciona uma entrada de dinheiro.\n"
             "🔹 <code>/receita_fixa Valor Conta Categoria Descricao</code> - Adiciona uma receita recorrente (todo mês).\n"
+            "🔹 <code>/investir Valor Corretora Tipo Nome</code> - Registra um novo aporte de investimento.\n"
+            "🔹 <code>/rendimento Valor Corretora Tipo Nome</code> - Registra os juros/lucro de um investimento.\n"
+            "🔹 <code>/patrimonio</code> - Mostra o saldo total acumulado de todos os seus investimentos.\n"
             "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
             "🔹 <code>/editar_valor ID NOVO_VALOR</code> - Altera o valor de um lançamento.\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
@@ -479,6 +482,69 @@ class ExpenseTelegramHandler:
             await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita_fixa Valor Conta Categoria Descrição`", parse_mode="Markdown")
         except Exception as e:
             await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_investir(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        try:
+            msg_text = update.message.text.replace("/investir", "").strip()
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+            expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'], transaction_type='INVESTMENT')
+            await update.message.reply_text(
+                f"🏦 ✅ Aporte registrado! [ID: {expense.id}]\n💰 R$ {expense.amount:.2f} | 🏢 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/investir Valor, Corretora, Categoria, Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_rendimento(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        try:
+            msg_text = update.message.text.replace("/rendimento", "").strip()
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+            expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'], transaction_type='YIELD')
+            await update.message.reply_text(
+                f"📈 ✅ Rendimento registrado! [ID: {expense.id}]\n💰 R$ {expense.amount:.2f} | 🏢 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/rendimento Valor, Corretora, Categoria, Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_patrimonio(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        summary = self.expense_service.get_portfolio_summary(user['family_group'])
+        if not summary:
+            await update.message.reply_text("🏦 Nenhum investimento encontrado no seu portfólio.")
+            return
+            
+        text = "🏦 **Resumo do seu Patrimônio**\n\n"
+        total_geral = 0
+        total_aportado = 0
+        total_rendimentos = 0
+        
+        for item in summary:
+            text += f"🔹 **{item['asset_name']}** ({item['broker']})\n"
+            text += f"  • Aportes: R$ {item['total_invested']:.2f}\n"
+            text += f"  • Rendimentos: R$ {item['total_yield']:.2f}\n"
+            text += f"  • **Saldo Atual: R$ {item['current_balance']:.2f}**\n\n"
+            
+            total_aportado += item['total_invested']
+            total_rendimentos += item['total_yield']
+            total_geral += item['current_balance']
+            
+        text += f"━━━━━━━━━━━━\n"
+        text += f"💰 **Total Aportado:** R$ {total_aportado:.2f}\n"
+        text += f"📈 **Total Rendimentos:** R$ {total_rendimentos:.2f}\n"
+        text += f"🏆 **PATRIMÔNIO TOTAL:** R$ {total_geral:.2f}"
+        
+        await update.message.reply_text(text, parse_mode="Markdown")
 
     async def handle_unknown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(

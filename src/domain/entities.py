@@ -6,6 +6,8 @@ from datetime import datetime
 class TransactionType(Enum):
     INCOME = "INCOME"
     EXPENSE = "EXPENSE"
+    INVESTMENT = "INVESTMENT"
+    YIELD = "YIELD"
 
 @dataclass
 class Expense:

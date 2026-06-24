@@ -19,6 +19,10 @@ class IExpenseRepository(ABC):
         pass
 
     @abstractmethod
+    def get_portfolio_summary(self, family_group: str) -> list:
+        pass
+
+    @abstractmethod
     def get_expenses_by_category(self, reference: str, family_group: str) -> dict:
         pass
 

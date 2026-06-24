@@ -44,7 +44,8 @@ class PostgresExpenseRepository(IExpenseRepository):
         query = f"""
             SELECT 
                 COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expenses,
-                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_revenues
+                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_revenues,
+                COALESCE(SUM(CASE WHEN type = 'INVESTMENT' THEN amount ELSE 0 END), 0) as total_invested
             FROM {table_name}
             WHERE reference = %s
         """
@@ -56,10 +57,12 @@ class PostgresExpenseRepository(IExpenseRepository):
                 row = cur.fetchone()
                 expenses = float(row[0]) if row else 0.0
                 revenues = float(row[1]) if row else 0.0
+                invested = float(row[2]) if row else 0.0
                 return {
                     "total_expenses": expenses,
                     "total_revenues": revenues,
-                    "balance": revenues - expenses
+                    "total_invested": invested,
+                    "balance": revenues - expenses - invested
                 }
         finally:
             if conn:
@@ -99,6 +102,39 @@ class PostgresExpenseRepository(IExpenseRepository):
             with conn.cursor() as cur:
                 cur.execute(query, (reference,))
                 return {row[0]: float(row[1]) for row in cur.fetchall()}
+        finally:
+            if conn:
+                conn.close()
+
+    def get_portfolio_summary(self, family_group: str) -> list:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"""
+            SELECT 
+                description as asset_name,
+                category as broker,
+                SUM(CASE WHEN type = 'INVESTMENT' THEN amount ELSE 0 END) as total_invested,
+                SUM(CASE WHEN type = 'YIELD' THEN amount ELSE 0 END) as total_yield
+            FROM {table_name}
+            WHERE type IN ('INVESTMENT', 'YIELD')
+            GROUP BY description, category
+            ORDER BY total_invested DESC
+        """
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+                return [
+                    {
+                        "asset_name": row[0],
+                        "broker": row[1],
+                        "total_invested": float(row[2]),
+                        "total_yield": float(row[3]),
+                        "current_balance": float(row[2]) + float(row[3])
+                    }
+                    for row in rows
+                ]
         finally:
             if conn:
                 conn.close()

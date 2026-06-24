@@ -117,6 +117,9 @@ class ExpenseService:
         if not reference:
             reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_monthly_summary(reference, family_group)
+
+    def get_portfolio_summary(self, family_group: str) -> list:
+        return self.repository.get_portfolio_summary(family_group)
         
     def get_expenses_by_payment_method(self, family_group: str, reference: str = None) -> dict:
         if not reference:
