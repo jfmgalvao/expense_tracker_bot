@@ -87,9 +87,94 @@ class ExpenseService:
 
     def register_expense(self, raw_message: str, family_group: str, user_name: str, is_fixed: bool = False, transaction_type: str = 'EXPENSE') -> Expense:
         expense = self.process_expense_message(raw_message, family_group, user_name, is_fixed, transaction_type)
-        expense_id = self.repository.save(expense)
-        expense.id = expense_id
-        return expense
+        try:
+            expense.id = self.repository.save(expense)
+            return expense
+        except Exception as e:
+            logger.error(f"Failed to save expense: {e}")
+            raise Exception("Erro ao salvar no banco de dados.")
+
+    def register_installments(self, raw_message: str, family_group: str, user_name: str) -> list:
+        if "," not in raw_message:
+            raise ValueError("Use vírgula para separar a Quantidade de Parcelas do resto.")
+            
+        raw_parts = [p.strip() for p in raw_message.split(",")]
+        try:
+            installments = int(raw_parts[0])
+        except ValueError:
+            raise ValueError("O primeiro valor deve ser a quantidade de parcelas (número inteiro).")
+            
+        if installments <= 0 or installments > 360:
+            raise ValueError("Quantidade de parcelas inválida (1 a 360).")
+
+        raw_parts = raw_parts[1:]
+        
+        parts = []
+        if len(raw_parts) >= 2:
+            try:
+                float(f"{raw_parts[0]}.{raw_parts[1]}")
+                parts.append(f"{raw_parts[0]}.{raw_parts[1]}")
+                parts.extend(raw_parts[2:])
+            except ValueError:
+                parts = raw_parts
+        else:
+            parts = raw_parts
+
+        if len(parts) >= 4:
+            amount_str = parts[0]
+            payment_method = parts[1]
+            category = parts[2]
+            description = ", ".join(parts[3:])
+        else:
+            # Fallback for space
+            fallback_str = ", ".join(raw_parts)
+            fallback_parts = fallback_str.strip().split(" ", 3)
+            if len(fallback_parts) < 4:
+                raise ValueError("Formato inválido. Use: QTD, Valor, Cartão/Conta, Categoria, Descrição")
+            amount_str, payment_method, category, description = fallback_parts
+
+        amount_str = amount_str.replace(",", ".")
+        try:
+            amount = float(amount_str)
+        except ValueError:
+            raise ValueError("O valor informado não é numérico válido.")
+
+        base_date = datetime.now()
+        base_month = base_date.month
+        base_year = base_date.year
+        
+        ref_match = re.search(r"(\d{2}/\d{4})$", description)
+        if ref_match:
+            ref_str = ref_match.group(1)
+            m, y = ref_str.split("/")
+            base_month = int(m)
+            base_year = int(y)
+            description = description.replace(ref_str, "").strip(", ")
+
+        expenses = []
+        for i in range(installments):
+            current_month = base_month + i
+            current_year = base_year + ((current_month - 1) // 12)
+            current_month = ((current_month - 1) % 12) + 1
+            ref_str = f"{current_year}-{current_month:02d}"
+
+            current_desc = f"{description} ({i+1}/{installments})"
+
+            expense = Expense(
+                amount=amount,
+                payment_method=payment_method,
+                description=current_desc,
+                category=category,
+                reference=ref_str,
+                family_group=family_group,
+                notes=f"Adicionado por {user_name}",
+                is_fixed=False,
+                transaction_type=TransactionType.EXPENSE
+            )
+            expense.id = self.repository.save(expense)
+            expenses.append(expense)
+
+        return expenses
 
     def delete_expense(self, expense_id: int, family_group: str) -> bool:
         return self.repository.delete_expense(expense_id, family_group)

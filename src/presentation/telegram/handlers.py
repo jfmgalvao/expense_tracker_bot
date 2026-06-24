@@ -328,6 +328,8 @@ class ExpenseTelegramHandler:
             "<code>150,50, Nubank, Alimentacao, Supermercado Extra</code>\n\n"
             "💡 <b>Lançar Despesa Fixa (clona todo mês):</b>\n"
             "<code>/fixa 2000, Conta Corrente, Moradia, Aluguel</code>\n\n"
+            "💡 <b>Lançar Compra Parcelada (Empréstimo/Cartão):</b>\n"
+            "<code>/parcelar 12, 1500, Nubank, Financiamento, Moto</code>\n\n"
             "💡 <b>Lançar Receita/Salário:</b>\n"
             "<code>/receita 5000, Conta Corrente, Salario, Pagamento Empresa</code>\n\n"
             "💡 <b>Registrar Investimento (Aporte):</b>\n"
@@ -482,6 +484,32 @@ class ExpenseTelegramHandler:
             )
         except ValueError as e:
             await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita_fixa Valor Conta Categoria Descrição`", parse_mode="Markdown")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_parcelar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        try:
+            msg_text = update.message.text.replace("/parcelar", "").strip()
+            if not msg_text:
+                raise ValueError("Mensagem vazia")
+            
+            expenses = self.expense_service.register_installments(msg_text, user['family_group'], user['name'])
+            qtd = len(expenses)
+            total = sum(e.amount for e in expenses)
+            
+            await update.message.reply_text(
+                f"✅ 🗓️ Compra parcelada registrada com sucesso!\n\n"
+                f"Foram criadas **{qtd} parcelas** de R$ {expenses[0].amount:.2f}.\n"
+                f"💰 **Total:** R$ {total:.2f}\n"
+                f"💳 **Método:** {expenses[0].payment_method}\n"
+                f"📝 **Descrição:** {expenses[0].description.rsplit(' (', 1)[0]}\n\n"
+                f"As parcelas foram jogadas automaticamente para os próximos meses!",
+                parse_mode="Markdown"
+            )
+        except ValueError as e:
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/parcelar QTD_VEZES, Valor, Conta, Categoria, Descrição`\nEx: `/parcelar 12, 1500, Nubank, Carro, Emprestimo`", parse_mode="Markdown")
         except Exception as e:
             await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
 

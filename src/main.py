@@ -48,6 +48,7 @@ def main():
     application.add_handler(CommandHandler("fixa", telegram_handler.handle_fixa))
     application.add_handler(CommandHandler("receita", telegram_handler.handle_receita))
     application.add_handler(CommandHandler("receita_fixa", telegram_handler.handle_receita_fixa))
+    application.add_handler(CommandHandler("parcelar", telegram_handler.handle_parcelar))
     application.add_handler(CommandHandler("remover", telegram_handler.handle_remover))
     application.add_handler(CommandHandler("editar_valor", telegram_handler.handle_editar_valor))
     application.add_handler(CommandHandler("investir", telegram_handler.handle_investir))
