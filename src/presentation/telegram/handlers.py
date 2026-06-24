@@ -69,6 +69,7 @@ class ExpenseTelegramHandler:
             [InlineKeyboardButton("📊 Resumo do Mês", callback_data="resumo_mensal")],
             [InlineKeyboardButton("💳 Gastos por Cartão", callback_data="gastos_cartao")],
             [InlineKeyboardButton("📋 Últimos Gastos", callback_data="ultimos_gastos")],
+            [InlineKeyboardButton("💵 Detalhamento Receitas", callback_data="receitas_menu")],
             [InlineKeyboardButton("📈 Gráfico de Categorias", callback_data="grafico_gastos")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -114,9 +115,9 @@ class ExpenseTelegramHandler:
                 await query.edit_message_text(text=text)
 
             elif query.data == "ultimos_gastos":
-                recent = self.expense_service.get_recent_expenses(family_group, 5)
+                recent = self.expense_service.get_recent_expenses(user['family_group'], 5)
                 if not recent:
-                    await query.edit_message_text("Nenhuma despesa registrada recentemente.")
+                    await query.edit_message_text(text="Nenhuma despesa registrada recentemente.")
                     return
                 
                 text = "📋 Últimos 5 Gastos\n\n"
@@ -124,11 +125,23 @@ class ExpenseTelegramHandler:
                     text += f"• [ID: {t['id']}] {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']} ({t['payment_method']})\n\n"
                 await query.edit_message_text(text=text)
 
+            elif query.data == "receitas_menu":
+                reference = datetime.now().strftime("%Y-%m")
+                incomes = self.expense_service.get_all_incomes_by_month(user['family_group'], reference)
+                if not incomes:
+                    await query.edit_message_text(text="Nenhuma receita encontrada neste mês.")
+                    return
+                
+                text = f"💵 Receitas de {reference}\n\n"
+                for t in incomes[:5]:
+                    text += f"• [ID: {t['id']}] {t['date']} - {t['category']} - R$ {t['amount']:.2f}\n  {t['description']}\n\n"
+                await query.edit_message_text(text=text)
+
             elif query.data == "grafico_gastos":
                 await query.edit_message_text("Gerando gráfico, aguarde... ⏳")
-                chart_buf = self.expense_service.get_monthly_chart(family_group)
+                chart_buf = self.expense_service.get_monthly_chart(user['family_group'])
                 if chart_buf:
-                    await context.bot.send_photo(chat_id=chat_id, photo=chart_buf)
+                    await context.bot.send_photo(chat_id=query.message.chat_id, photo=chart_buf)
                     await query.edit_message_text("Aqui está o gráfico do mês atual!")
                 else:
                     await query.edit_message_text("Não há dados suficientes neste mês para gerar um gráfico.")
