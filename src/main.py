@@ -42,6 +42,7 @@ def main():
     application.add_handler(CommandHandler("resumo", telegram_handler.handle_resumo))
     application.add_handler(CommandHandler("cartao", telegram_handler.handle_cartao))
     application.add_handler(CommandHandler("detalhamento", telegram_handler.handle_detalhamento))
+    application.add_handler(CommandHandler("receitas", telegram_handler.handle_receitas))
     application.add_handler(CommandHandler("balanco", telegram_handler.handle_balanco))
     application.add_handler(CommandHandler("total_gasto", telegram_handler.handle_total_gasto))
     application.add_handler(CommandHandler("fixa", telegram_handler.handle_fixa))

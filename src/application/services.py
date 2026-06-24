@@ -109,6 +109,11 @@ class ExpenseService:
             reference = datetime.now().strftime("%Y-%m")
         return self.repository.get_all_expenses_by_month(reference, family_group)
 
+    def get_all_incomes_by_month(self, family_group: str, reference: str = None) -> list:
+        if not reference:
+            reference = datetime.now().strftime("%Y-%m")
+        return self.repository.get_all_incomes_by_month(reference, family_group)
+
     def get_recent_expenses(self, family_group: str, limit: int = 10) -> list:
         return self.repository.get_recent_expenses(family_group, limit)
         

@@ -230,6 +230,44 @@ class ExpenseTelegramHandler:
         for msg in messages_to_send:
             await update.message.reply_text(msg, parse_mode="Markdown")
 
+    async def handle_receitas(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        args = context.args
+        reference = None
+        if args:
+            ref_str = args[0]
+            if re.match(r"^(\d{4}-\d{2})$", ref_str):
+                reference = ref_str
+            elif re.match(r"^(\d{2}/\d{4})$", ref_str):
+                month, year = ref_str.split("/")
+                reference = f"{year}-{month}"
+                
+        self.expense_service.sync_fixed_expenses(user['family_group'], reference)
+        details = self.expense_service.get_all_incomes_by_month(user['family_group'], reference)
+        if not details:
+            await update.message.reply_text(f"Nenhuma receita encontrada no mês {reference or 'atual'}.")
+            return
+            
+        text = f"💵 Detalhamento de Receitas ({reference or 'Mês Atual'})\n\n"
+        total = 0
+        messages_to_send = []
+        for t in details:
+            fixa_tag = "📌 " if t.get('is_fixed') else ""
+            line = f"• [ID: {t['id']}] {fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            if len(text) + len(line) > 3800:
+                messages_to_send.append(text)
+                text = ""
+            text += line
+            total += t['amount']
+            
+        text += f"💰 **Total Recebido:** R$ {total:.2f}"
+        messages_to_send.append(text)
+        
+        for msg in messages_to_send:
+            await update.message.reply_text(msg, parse_mode="Markdown")
+
     async def handle_balanco(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)
         if not user: return
@@ -259,6 +297,7 @@ class ExpenseTelegramHandler:
             "🔹 <code>/menu</code> - Abre os botões interativos.\n"
             "🔹 <code>/resumo [MM/AAAA]</code> - Mostra totais de entradas e saídas.\n"
             "🔹 <code>/detalhamento [MM/AAAA]</code> - Lista detalhada de todos os gastos com IDs.\n"
+            "🔹 <code>/receitas [MM/AAAA]</code> - Lista detalhada de todas as receitas com IDs.\n"
             "🔹 <code>/balanco [MM/AAAA]</code> - Gráfico visual de Receitas x Despesas.\n"
             "🔹 <code>/cartao NOME [MM/AAAA]</code> - Detalha faturas do cartão.\n"
             "🔹 <code>/total_gasto PALAVRA [MM/AAAA]</code> - Busca gastos por palavra.\n"
