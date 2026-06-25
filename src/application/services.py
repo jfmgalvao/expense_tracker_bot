@@ -60,17 +60,26 @@ class ExpenseService:
             raise ValueError("O valor informado não é numérico válido.")
 
         # Extract optional reference from the end of description
-        reference = datetime.now().strftime("%Y-%m")
-        desc_parts = description.split()
-        if len(desc_parts) >= 1:
-            last_word = desc_parts[-1]
-            if re.match(r"^(\d{4}-\d{2})$", last_word):
-                reference = last_word
-                description = " ".join(desc_parts[:-1]) if len(desc_parts) > 1 else description
-            elif re.match(r"^(\d{2}/\d{4})$", last_word):
-                month, year = last_word.split("/")
-                reference = f"{year}-{month}"
-                description = " ".join(desc_parts[:-1]) if len(desc_parts) > 1 else description
+        # Parse pendente status
+        status = "PAGO"
+        if description.lower().endswith("pendente"):
+            status = "PENDENTE"
+            # Remove "pendente" from description, keeping anything else
+            description = re.sub(r'(?i)[,\s]*pendente$', '', description).strip()
+            
+            # If the description became empty because they just typed the category and "pendente", fallback
+            if not description:
+                description = category
+
+        # Reference month mapping (Retroactive)
+        ref_match = re.search(r"(\d{2}/\d{4})$", description)
+        if ref_match:
+            ref_str = ref_match.group(1)
+            m, y = ref_str.split("/")
+            reference = f"{y}-{m}"
+            description = description.replace(ref_str, "").strip(", ")
+        else:
+            reference = datetime.now().strftime("%Y-%m")
 
         from src.domain.entities import TransactionType
         return Expense(
@@ -80,6 +89,7 @@ class ExpenseService:
             category=category,
             reference=reference,
             family_group=family_group,
+            status=status,
             notes=f"Adicionado por {user_name}",
             is_fixed=is_fixed,
             transaction_type=TransactionType(transaction_type)
@@ -181,6 +191,9 @@ class ExpenseService:
 
     def update_expense_amount(self, expense_id: int, new_amount: float, family_group: str) -> bool:
         return self.repository.update_expense_amount(expense_id, new_amount, family_group)
+
+    def mark_as_paid(self, expense_id: int, family_group: str) -> bool:
+        return self.repository.mark_as_paid(expense_id, family_group)
 
     def sync_fixed_expenses(self, family_group: str, reference: str = None) -> None:
         if not reference:

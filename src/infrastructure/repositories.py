@@ -229,6 +229,21 @@ class PostgresExpenseRepository(IExpenseRepository):
             if conn:
                 conn.close()
 
+    def mark_as_paid(self, expense_id: int, family_group: str) -> bool:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"UPDATE {table_name} SET status = 'PAGO' WHERE id = %s RETURNING id"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query, (expense_id,))
+                updated = cur.fetchone()
+                conn.commit()
+                return bool(updated)
+        finally:
+            if conn:
+                conn.close()
+
     def clone_fixed_expenses(self, family_group: str, from_reference: str, to_reference: str) -> None:
         table_name = f"transactions_{family_group.lower()}"
         # Primeiro, verifica no sync_log
@@ -244,7 +259,7 @@ class PostgresExpenseRepository(IExpenseRepository):
                 # Clona as despesas fixas
                 clone_query = f"""
                     INSERT INTO {table_name} (amount, payment_method, description, category, reference, status, is_fixed, notes, type)
-                    SELECT amount, payment_method, description, category, %s, status, is_fixed, 'Auto-clonado do mês anterior', type
+                    SELECT amount, payment_method, description, category, %s, 'PENDENTE', is_fixed, 'Auto-clonado do mês anterior', type
                     FROM {table_name}
                     WHERE reference = %s AND is_fixed = TRUE
                 """
@@ -261,7 +276,7 @@ class PostgresExpenseRepository(IExpenseRepository):
     def get_all_expenses_by_month(self, reference: str, family_group: str) -> list:
         table_name = f"transactions_{family_group.lower()}"
         query = f"""
-            SELECT id, amount, category, description, created_at, payment_method, is_fixed
+            SELECT id, amount, category, description, created_at, payment_method, is_fixed, status
             FROM {table_name}
             WHERE reference = %s AND type = 'EXPENSE'
             ORDER BY created_at DESC
@@ -280,7 +295,8 @@ class PostgresExpenseRepository(IExpenseRepository):
                         "description": row[3],
                         "date": row[4].strftime("%d/%m") if row[4] else "",
                         "payment_method": row[5],
-                        "is_fixed": row[6]
+                        "is_fixed": row[6],
+                        "status": row[7]
                     }
                     for row in rows
                 ]

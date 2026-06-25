@@ -230,7 +230,8 @@ class ExpenseTelegramHandler:
         messages_to_send = []
         for t in details:
             fixa_tag = "📌 " if t.get('is_fixed') else ""
-            line = f"• [ID: {t['id']}] {fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            status_tag = "✅ " if t.get('status') == 'PAGO' else "⏳ "
+            line = f"• [ID: {t['id']}] {status_tag}{fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
             if len(text) + len(line) > 3800:
                 messages_to_send.append(text)
                 text = ""
@@ -322,6 +323,7 @@ class ExpenseTelegramHandler:
             "🔹 <code>/patrimonio</code> - Mostra o saldo total acumulado de todos os seus investimentos.\n"
             "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
             "🔹 <code>/editar_valor ID NOVO_VALOR</code> - Altera o valor de um lançamento.\n"
+            "🔹 <code>/pagar ID</code> - Marca um lançamento pendente como pago.\n"
             "🔹 <code>/ajuda</code> - Mostra esta lista de comandos.\n\n"
             "💡 <b>Como lançar uma despesa normal:</b>\n"
             "Mande direto no chat separando por VÍRGULA ou ESPAÇO:\n"
@@ -445,6 +447,26 @@ class ExpenseTelegramHandler:
                 await update.message.reply_text(f"❌ Não encontrei nenhum lançamento com ID {expense_id} na sua família.")
         except ValueError:
             await update.message.reply_text("⚠️ Certifique-se de usar números válidos para o ID e para o Valor.")
+
+    async def handle_pagar(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        args = context.args
+        if not args or len(args) != 1:
+            await update.message.reply_text("⚠️ Uso correto: /pagar <ID_LANCAMENTO>\nExemplo: /pagar 105")
+            return
+            
+        try:
+            expense_id = int(args[0])
+            success = self.expense_service.mark_as_paid(expense_id, user['family_group'])
+            
+            if success:
+                await update.message.reply_text(f"✅ Lançamento ID {expense_id} marcado como PAGO!")
+            else:
+                await update.message.reply_text(f"❌ Não encontrei nenhum lançamento com ID {expense_id} na sua família.")
+        except ValueError:
+            await update.message.reply_text("⚠️ Certifique-se de usar um ID numérico válido.")
 
     async def handle_receita(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)
