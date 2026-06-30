@@ -1,6 +1,7 @@
 import os
 import logging
-from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters
+from telegram import BotCommand
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, CallbackQueryHandler, filters, Application
 from src.config.settings import settings
 from src.infrastructure.database import DatabaseConnection
 from src.infrastructure.repositories import PostgresExpenseRepository
@@ -13,6 +14,30 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+async def post_init(application: Application):
+    commands = [
+        BotCommand("start", "Iniciar o bot"),
+        BotCommand("menu", "Mostrar o menu principal"),
+        BotCommand("resumo", "Ver resumo do mês"),
+        BotCommand("cartao", "Gerenciar cartão"),
+        BotCommand("detalhamento", "Ver detalhes de gastos"),
+        BotCommand("receitas", "Ver receitas"),
+        BotCommand("balanco", "Ver balanço geral"),
+        BotCommand("total_gasto", "Ver total gasto"),
+        BotCommand("fixa", "Ex: /fixa 100 Luz"),
+        BotCommand("receita", "Ex: /receita 500 Venda"),
+        BotCommand("receita_fixa", "Ex: /receita_fixa 1000 Salário"),
+        BotCommand("parcelar", "Ex: /parcelar 300 3x Celular"),
+        BotCommand("remover", "Remover um registro"),
+        BotCommand("pagar", "Marcar como pago"),
+        BotCommand("editar_valor", "Editar valor"),
+        BotCommand("investir", "Ex: /investir 200 Tesouro"),
+        BotCommand("rendimento", "Ex: /rendimento 50 FIIs"),
+        BotCommand("patrimonio", "Ver patrimônio total"),
+        BotCommand("ajuda", "Mostrar ajuda"),
+    ]
+    await application.bot.set_my_commands(commands)
 
 def main():
     if not settings.telegram_token:
@@ -34,7 +59,7 @@ def main():
 
     # 4. Initialize Telegram Bot Application
     logger.info("Starting Telegram Bot Application...")
-    application = ApplicationBuilder().token(settings.telegram_token).build()
+    application = ApplicationBuilder().token(settings.telegram_token).post_init(post_init).build()
     
     application.add_handler(CommandHandler("start", telegram_handler.handle_start))
     application.add_handler(CommandHandler("iniciar", telegram_handler.handle_iniciar))
