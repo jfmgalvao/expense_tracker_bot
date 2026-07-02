@@ -269,7 +269,8 @@ class ExpenseTelegramHandler:
         messages_to_send = []
         for t in details:
             fixa_tag = "📌 " if t.get('is_fixed') else ""
-            line = f"• [ID: {t['id']}] {fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
+            status_tag = "✅ " if t.get('status') == 'PAGO' else "⏳ "
+            line = f"• [ID: {t['id']}] {status_tag}{fixa_tag}{t['date']} - {t['category']} - R$ {t['amount']:.2f} ({t['payment_method']})\n  {t['description']}\n\n"
             if len(text) + len(line) > 3800:
                 messages_to_send.append(text)
                 text = ""

@@ -307,7 +307,7 @@ class PostgresExpenseRepository(IExpenseRepository):
     def get_all_incomes_by_month(self, reference: str, family_group: str) -> list:
         table_name = f"transactions_{family_group.lower()}"
         query = f"""
-            SELECT id, amount, category, description, created_at, payment_method, is_fixed
+            SELECT id, amount, category, description, created_at, payment_method, is_fixed, status
             FROM {table_name}
             WHERE reference = %s AND type = 'INCOME'
             ORDER BY created_at DESC
@@ -326,7 +326,8 @@ class PostgresExpenseRepository(IExpenseRepository):
                         "description": row[3],
                         "date": row[4].strftime("%d/%m") if row[4] else "",
                         "payment_method": row[5],
-                        "is_fixed": row[6]
+                        "is_fixed": row[6],
+                        "status": row[7]
                     }
                     for row in rows
                 ]
