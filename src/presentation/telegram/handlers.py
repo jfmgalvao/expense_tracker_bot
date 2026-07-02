@@ -330,10 +330,10 @@ class ExpenseTelegramHandler:
             "🔹 <code>/balanco [MM/AAAA]</code> - Gráfico visual de Receitas x Despesas.\n"
             "🔹 <code>/cartao NOME [MM/AAAA]</code> - Detalha faturas do cartão.\n"
             "🔹 <code>/total_gasto PALAVRA [MM/AAAA]</code> - Busca gastos por palavra.\n"
-            "🔹 <code>/fixa Valor Cartao Categoria Descricao</code> - Adiciona uma despesa recorrente (todo mês).\n"
-            "🔹 <code>/receita Valor Conta Categoria Descricao</code> - Adiciona uma entrada de dinheiro.\n"
-            "🔹 <code>/receita_fixa Valor Conta Categoria Descricao</code> - Adiciona uma receita recorrente (todo mês).\n"
-            "🔹 <code>/investir Valor Corretora Tipo Nome</code> - Registra um novo aporte de investimento.\n"
+            "🔹 <code>/fixa Valor, Cartão, Categoria, Descrição</code> - Adiciona uma despesa recorrente (todo mês).\n"
+            "🔹 <code>/receita Valor, Conta, Categoria, Descrição</code> - Adiciona uma entrada de dinheiro.\n"
+            "🔹 <code>/receita_fixa Valor, Conta, Categoria, Descrição</code> - Adiciona uma receita recorrente (todo mês).\n"
+            "🔹 <code>/investir Valor, Corretora, Tipo, Nome</code> - Registra um novo aporte de investimento.\n"
             "🔹 <code>/rendimento Valor Corretora Tipo Nome</code> - Registra os juros/lucro de um investimento.\n"
             "🔹 <code>/patrimonio</code> - Mostra o saldo total acumulado de todos os seus investimentos.\n"
             "🔹 <code>/remover ID</code> - Remove um lançamento (ex: /remover 105).\n"
@@ -423,7 +423,7 @@ class ExpenseTelegramHandler:
                 f"✅ 📌 Despesa Fixa registrada com sucesso! [ID: {expense.id}]\nEla será clonada automaticamente para os próximos meses.\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
             )
         except ValueError as e:
-            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/fixa Valor Cartão Categoria Descrição`", parse_mode="Markdown")
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/fixa Valor, Cartão, Categoria, Descrição`", parse_mode="Markdown")
         except Exception as e:
             await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
 
@@ -505,7 +505,7 @@ class ExpenseTelegramHandler:
                 f"✅ Receita registrada! [ID: {expense.id}]\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
             )
         except ValueError as e:
-            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita Valor Conta Categoria Descrição`", parse_mode="Markdown")
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita Valor, Conta, Categoria, Descrição`", parse_mode="Markdown")
         except Exception as e:
             await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
 
@@ -523,7 +523,7 @@ class ExpenseTelegramHandler:
                 f"✅ 📌 Receita Fixa registrada com sucesso! [ID: {expense.id}]\nEla será clonada automaticamente para os próximos meses.\n💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n📁 {expense.category} | 📝 {expense.description}\n📅 Ref: {expense.reference}"
             )
         except ValueError as e:
-            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita_fixa Valor Conta Categoria Descrição`", parse_mode="Markdown")
+            await update.message.reply_text(f"⚠️ Erro: {str(e)}\n\nUse: `/receita_fixa Valor, Conta, Categoria, Descrição`", parse_mode="Markdown")
         except Exception as e:
             await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
 
@@ -650,8 +650,8 @@ class ExpenseTelegramHandler:
             await update.message.reply_text(
                 f"⚠️ {str(ve)}\n\n"
                 f"**Lembrete de Formato:**\n"
-                f"`<Valor> <Cartão> <Categoria> <Descrição>`\n"
-                f"Ex: `150,50 Nubank Alimentação Mercado`",
+                f"`<Valor>, <Cartão>, <Categoria>, <Descrição>`\n"
+                f"Ex: `150,50, Nubank, Alimentação, Mercado`",
                 parse_mode="Markdown"
             )
         except Exception as e:
