@@ -166,11 +166,19 @@ class ExpenseTelegramHandler:
         summary = self.expense_service.get_monthly_summary(user['family_group'], reference)
         text = (
             f"📊 Resumo do Mês ({reference or 'Atual'}) - {user['family_group']}\n\n"
-            f"📉 Despesas: R$ {summary['total_expenses']:.2f}\n"
-            f"📈 Receitas: R$ {summary['total_revenues']:.2f}\n"
-            f"⚖️ Saldo: R$ {summary['balance']:.2f}"
+            f"🟢 **Receitas**\n"
+            f"   ✅ Recebidas: R$ {summary['revenues_paid']:.2f}\n"
+            f"   ⏳ Pendentes: R$ {summary['revenues_pending']:.2f}\n"
+            f"   💰 Total Previsto: R$ {summary['total_revenues']:.2f}\n\n"
+            f"🔴 **Despesas**\n"
+            f"   ✅ Pagas: R$ {summary['expenses_paid']:.2f}\n"
+            f"   ⏳ Pendentes: R$ {summary['expenses_pending']:.2f}\n"
+            f"   💸 Total Previsto: R$ {summary['total_expenses']:.2f}\n\n"
+            f"🏦 **Investimentos:** R$ {summary['total_invested']:.2f}\n\n"
+            f"💵 **Saldo Atual na Conta:** R$ {summary['balance_current']:.2f}\n"
+            f"⚖️ **Saldo Projetado do Mês:** R$ {summary['balance_projected']:.2f}"
         )
-        await update.message.reply_text(text)
+        await update.message.reply_text(text, parse_mode="Markdown")
 
     async def handle_cartao(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = await self.get_authenticated_user(update)
@@ -276,8 +284,14 @@ class ExpenseTelegramHandler:
                 text = ""
             text += line
             total += t['amount']
+        total_pago = sum(t['amount'] for t in details if t.get('status') == 'PAGO')
+        total_pendente = sum(t['amount'] for t in details if t.get('status') == 'PENDENTE')
+        total = total_pago + total_pendente
             
-        text += f"💰 **Total Recebido:** R$ {total:.2f}"
+        text += f"━━━━━━━━━━━━\n"
+        text += f"✅ **Total Recebido:** R$ {total_pago:.2f}\n"
+        text += f"⏳ **Total a Receber:** R$ {total_pendente:.2f}\n"
+        text += f"💰 **Total Geral:** R$ {total:.2f}"
         messages_to_send.append(text)
         
         for msg in messages_to_send:

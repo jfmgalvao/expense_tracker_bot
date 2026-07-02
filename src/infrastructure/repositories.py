@@ -43,8 +43,10 @@ class PostgresExpenseRepository(IExpenseRepository):
         table_name = f"transactions_{family_group.lower()}"
         query = f"""
             SELECT 
-                COALESCE(SUM(CASE WHEN type = 'EXPENSE' THEN amount ELSE 0 END), 0) as total_expenses,
-                COALESCE(SUM(CASE WHEN type = 'INCOME' THEN amount ELSE 0 END), 0) as total_revenues,
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PAGO' THEN amount ELSE 0 END), 0) as expenses_paid,
+                COALESCE(SUM(CASE WHEN type = 'EXPENSE' AND status = 'PENDENTE' THEN amount ELSE 0 END), 0) as expenses_pending,
+                COALESCE(SUM(CASE WHEN type = 'INCOME' AND status = 'PAGO' THEN amount ELSE 0 END), 0) as revenues_paid,
+                COALESCE(SUM(CASE WHEN type = 'INCOME' AND status = 'PENDENTE' THEN amount ELSE 0 END), 0) as revenues_pending,
                 COALESCE(SUM(CASE WHEN type = 'INVESTMENT' THEN amount ELSE 0 END), 0) as total_invested
             FROM {table_name}
             WHERE reference = %s
@@ -55,14 +57,26 @@ class PostgresExpenseRepository(IExpenseRepository):
             with conn.cursor() as cur:
                 cur.execute(query, (reference,))
                 row = cur.fetchone()
-                expenses = float(row[0]) if row else 0.0
-                revenues = float(row[1]) if row else 0.0
-                invested = float(row[2]) if row else 0.0
+                
+                e_paid = float(row[0]) if row else 0.0
+                e_pending = float(row[1]) if row else 0.0
+                r_paid = float(row[2]) if row else 0.0
+                r_pending = float(row[3]) if row else 0.0
+                invested = float(row[4]) if row else 0.0
+                
+                total_expenses = e_paid + e_pending
+                total_revenues = r_paid + r_pending
+                
                 return {
-                    "total_expenses": expenses,
-                    "total_revenues": revenues,
+                    "expenses_paid": e_paid,
+                    "expenses_pending": e_pending,
+                    "total_expenses": total_expenses,
+                    "revenues_paid": r_paid,
+                    "revenues_pending": r_pending,
+                    "total_revenues": total_revenues,
                     "total_invested": invested,
-                    "balance": revenues - expenses - invested
+                    "balance_current": r_paid - e_paid - invested,
+                    "balance_projected": total_revenues - total_expenses - invested
                 }
         finally:
             if conn:
