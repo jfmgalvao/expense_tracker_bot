@@ -682,7 +682,8 @@ class ExpenseTelegramHandler:
             
             # 3. Use Vision Service
             await status_msg.edit_text("⏳ Processando dados extraídos...")
-            data = self.vision_service.extract_expense_from_image(img_path, caption_hint)
+            user_categories = self.expense_service.get_all_categories(user['family_group'])
+            data = self.vision_service.extract_expense_from_image(img_path, caption_hint, user_categories)
             
             # 4. Format synthetic message exactly like user text input
             payment_method = caption_hint.strip() if caption_hint else data['metodo_pagamento']

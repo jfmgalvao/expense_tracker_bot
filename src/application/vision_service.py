@@ -17,7 +17,7 @@ class VisionService:
     def is_configured(self) -> bool:
         return self.model is not None
 
-    def extract_expense_from_image(self, image_path: str, caption_hint: str = "") -> dict:
+    def extract_expense_from_image(self, image_path: str, caption_hint: str = "", user_categories: list = None) -> dict:
         if not self.is_configured():
             raise ValueError("GEMINI_API_KEY não configurada no servidor.")
 
@@ -36,6 +36,8 @@ class VisionService:
         Atenção:
         - Responda APENAS com o JSON. Não adicione markdown (```json), blocos de texto ou explicações antes ou depois.
         - Se o usuário forneceu a seguinte dica na legenda: "{caption_hint}", você pode considerar para ajustar a categoria ou descrição se fizer sentido.
+        - Se a dica do usuário for um nome de método de pagamento ou um banco, use-o em "metodo_pagamento".
+        - Categorias já cadastradas pelo usuário: {', '.join(user_categories) if user_categories else 'Nenhuma'}. Tente usar uma destas categorias se for adequada.
         - O valor deve usar ponto para decimais.
         """
 

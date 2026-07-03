@@ -301,3 +301,6 @@ class ExpenseService:
         plt.close()
         
         return buf
+
+    def get_all_categories(self, family_group: str) -> list:
+        return self.repository.get_all_categories(family_group)

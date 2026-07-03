@@ -422,3 +422,19 @@ class PostgresExpenseRepository(IExpenseRepository):
         finally:
             if conn:
                 conn.close()
+
+    def get_all_categories(self, family_group: str) -> list:
+        table_name = f"transactions_{family_group.lower()}"
+        query = f"SELECT DISTINCT category FROM {table_name} WHERE type = 'EXPENSE' ORDER BY category"
+        conn = None
+        try:
+            conn = self.db.get_connection()
+            with conn.cursor() as cur:
+                cur.execute(query)
+                rows = cur.fetchall()
+                return [row[0] for row in rows if row[0]]
+        except Exception:
+            return []
+        finally:
+            if conn:
+                conn.close()
