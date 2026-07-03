@@ -27,7 +27,7 @@ class VisionService:
         
         {{
             "valor": 0.00, // O valor TOTAL pago na nota, como float
-            "categoria": "Nome da Categoria", // Deduza a categoria mais adequada (Ex: Alimentação, Transporte, Saúde, Moradia, Lazer, Compras)
+            "categoria": "Nome da Categoria", // Deduza a categoria. Caso o usuário não tenha categorias adequadas cadastradas, use opções amplas (Ex: Cartão, Despesa, Renda, etc) ou crie uma se for indispensável.
             "descricao": "Nome do Local", // O nome principal do estabelecimento ou do item
             "parcelas": 1, // Se identificar que foi parcelado (ex: 1/5, Parcelado em 5x), coloque o total de parcelas (neste caso, 5). Se for à vista ou não mencionar, coloque 1.
             "metodo_pagamento": "Cartão" // Identifique a forma de pagamento (Ex: Pix, Dinheiro, Cartão de Crédito, Cartão de Débito, Vale Refeição). Se não tiver certeza, coloque "Cartão".
