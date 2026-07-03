@@ -88,6 +88,11 @@ def main():
     application.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, telegram_handler.handle_message)
     )
+
+    # Processa envio de fotos (Recibos / Cupons Fiscais via IA)
+    application.add_handler(
+        MessageHandler(filters.PHOTO, telegram_handler.handle_photo)
+    )
     
     # Processa comandos desconhecidos (deve ser o último handler de comandos)
     application.add_handler(

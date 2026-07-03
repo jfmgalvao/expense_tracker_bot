@@ -1,15 +1,18 @@
+import os
 import logging
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from src.config.settings import settings
 from src.application.services import ExpenseService
+from src.application.vision_service import VisionService
 
 logger = logging.getLogger(__name__)
 
 class ExpenseTelegramHandler:
     def __init__(self, expense_service: ExpenseService):
         self.expense_service = expense_service
+        self.vision_service = VisionService()
 
     async def get_authenticated_user(self, update: Update) -> dict:
         chat_id = update.effective_user.id
@@ -655,5 +658,59 @@ class ExpenseTelegramHandler:
                 parse_mode="Markdown"
             )
         except Exception as e:
-            logger.error(f"Failed to process message: {e}")
-            await update.message.reply_text("❌ Ocorreu um erro interno ao registrar a despesa.")
+            logger.error(f"Error handling message: {e}")
+            await update.message.reply_text(f"❌ Ocorreu um erro: {str(e)}")
+
+    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = await self.get_authenticated_user(update)
+        if not user: return
+        
+        if not self.vision_service.is_configured():
+            await update.message.reply_text("❌ A leitura inteligente de cupons fiscais (Gemini AI) não está configurada neste servidor.")
+            return
+
+        status_msg = await update.message.reply_text("🔍 Lendo cupom fiscal usando Inteligência Artificial...")
+        
+        try:
+            # 1. Download image
+            photo_file = await update.message.photo[-1].get_file()
+            img_path = f"/tmp/receipt_{update.message.message_id}.jpg"
+            await photo_file.download_to_drive(img_path)
+            
+            # 2. Extract hint from caption
+            caption_hint = update.message.caption or ""
+            
+            # 3. Use Vision Service
+            await status_msg.edit_text("⏳ Processando dados extraídos...")
+            data = self.vision_service.extract_expense_from_image(img_path, caption_hint)
+            
+            # 4. Format synthetic message exactly like user text input
+            payment_method = caption_hint.strip() if caption_hint else "Cartão"
+            # Format: Valor, Cartão, Categoria, Descrição
+            msg_text = f"{data['valor']}, {payment_method}, {data['categoria']}, {data['descricao']}"
+            
+            if data['parcelas'] > 1:
+                expenses = self.expense_service.register_installments(f"{data['parcelas']}, {msg_text}", user['family_group'], user['name'])
+                total = sum(e.amount for e in expenses)
+                await status_msg.edit_text(
+                    f"✅ 🤖 **Cupom Parcelado Lido com Sucesso!**\n\n"
+                    f"Lançado em {data['parcelas']} vezes.\n"
+                    f"💰 Total: R$ {total:.2f} | 💳 {payment_method}\n"
+                    f"📁 {data['categoria']} | 📝 {data['descricao']}\n\n"
+                    f"*(As parcelas futuras ficaram como pendentes)*", parse_mode="Markdown"
+                )
+            else:
+                expense = self.expense_service.register_expense(msg_text, user['family_group'], user['name'])
+                await status_msg.edit_text(
+                    f"✅ 🤖 **Cupom Lido com Sucesso!**\n\n"
+                    f"💰 R$ {expense.amount:.2f} | 💳 {expense.payment_method}\n"
+                    f"📁 {expense.category} | 📝 {expense.description}\n"
+                    f"📅 Ref: {expense.reference}", parse_mode="Markdown"
+                )
+                
+        except Exception as e:
+            logger.error(f"Error handling photo: {e}")
+            await status_msg.edit_text(f"❌ Erro ao ler cupom fiscal: {str(e)}")
+        finally:
+            if 'img_path' in locals() and os.path.exists(img_path):
+                os.remove(img_path)
