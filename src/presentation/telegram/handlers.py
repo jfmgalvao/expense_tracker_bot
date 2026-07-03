@@ -685,7 +685,7 @@ class ExpenseTelegramHandler:
             data = self.vision_service.extract_expense_from_image(img_path, caption_hint)
             
             # 4. Format synthetic message exactly like user text input
-            payment_method = caption_hint.strip() if caption_hint else "Cartão"
+            payment_method = caption_hint.strip() if caption_hint else data['metodo_pagamento']
             # Format: Valor, Cartão, Categoria, Descrição
             msg_text = f"{data['valor']}, {payment_method}, {data['categoria']}, {data['descricao']}"
             

@@ -29,7 +29,8 @@ class VisionService:
             "valor": 0.00, // O valor TOTAL pago na nota, como float
             "categoria": "Nome da Categoria", // Deduza a categoria mais adequada (Ex: Alimentação, Transporte, Saúde, Moradia, Lazer, Compras)
             "descricao": "Nome do Local", // O nome principal do estabelecimento ou do item
-            "parcelas": 1 // Se identificar que foi parcelado (ex: 1/5, Parcelado em 5x), coloque o total de parcelas (neste caso, 5). Se for à vista ou não mencionar, coloque 1.
+            "parcelas": 1, // Se identificar que foi parcelado (ex: 1/5, Parcelado em 5x), coloque o total de parcelas (neste caso, 5). Se for à vista ou não mencionar, coloque 1.
+            "metodo_pagamento": "Cartão" // Identifique a forma de pagamento (Ex: Pix, Dinheiro, Cartão de Crédito, Cartão de Débito, Vale Refeição). Se não tiver certeza, coloque "Cartão".
         }}
 
         Atenção:
@@ -58,7 +59,8 @@ class VisionService:
                 "valor": float(data.get("valor", 0.0)),
                 "categoria": str(data.get("categoria", "Outros")),
                 "descricao": str(data.get("descricao", "Despesa Lida")),
-                "parcelas": int(data.get("parcelas", 1))
+                "parcelas": int(data.get("parcelas", 1)),
+                "metodo_pagamento": str(data.get("metodo_pagamento", "Cartão"))
             }
         except Exception as e:
             raise Exception(f"Falha ao ler o cupom fiscal: {str(e)}")
